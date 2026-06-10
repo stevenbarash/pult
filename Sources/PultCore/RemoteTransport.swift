@@ -81,6 +81,17 @@ public actor NetworkRemoteTransport: RemoteTransport {
                     gate.resume {
                         continuation.resume(throwing: RemoteTransportError.connectionFailed)
                     }
+                case .waiting:
+                    // Refused, unreachable, and policy-denied dials all land
+                    // here, and NWConnection then retries until the network
+                    // changes. For a LAN remote that means "the TV is not
+                    // reachable right now": fail fast so callers (lock-screen
+                    // intents especially) never suspend indefinitely; retry
+                    // policy lives in the session layer above.
+                    gate.resume {
+                        connection.cancel()
+                        continuation.resume(throwing: RemoteTransportError.connectionFailed)
+                    }
                 default:
                     break
                 }
