@@ -1,7 +1,7 @@
 # Lock-Screen Remote ("Pult Anywhere") — Design
 
 **Date:** 2026-06-10
-**Status:** Awaiting user review
+**Status:** Implemented — pending device validation (see plan Task 7)
 
 ## Goal
 
@@ -49,8 +49,8 @@ close as iOS 26 public APIs allow to the system Apple TV Remote experience.
 - **Use:** the Live Activity shows a d-pad cluster (up/down/left/right/select), back,
   home, play/pause, volume −/+, mute, and power, plus the device name and a
   connection-status indicator. Every press fires `SendRemoteKeyIntent` without
-  unlocking. The Dynamic Island expanded view shows a media row (back, play/pause,
-  vol −/+, home); compact shows a TV glyph plus status dot.
+  unlocking. The Dynamic Island expanded view shows a media row (back, rewind,
+  play/pause, fast-forward, mute); compact shows a TV glyph plus status dot.
 - **Errors:** a failed send flips the activity's status line to a short message
   ("Couldn't reach Living Room TV") and the status dot to red; the next successful
   press clears it.
@@ -99,8 +99,10 @@ New pieces, by layer:
   ("Pause the TV with \(.applicationName)") and a "TV remote" phrase for
   `StartRemoteSessionIntent`; the dead `SendRemoteCommandIntent` shortcut is removed.
 - **`RemoteActivityController`** (app-side) — owns `Activity<RemoteSessionAttributes>`
-  lifecycle: start on connect, update on `ConnectionState` change and send errors,
-  end on disconnect. The app exposes one process-wide `RemoteControlModel` (promoted
+  lifecycle: start on connect, end on disconnect. Activity state refreshes at intent
+  boundaries (after each headless send and session start) and on foreground connects,
+  not via continuous `ConnectionState` observation. The app exposes one
+  process-wide `RemoteControlModel` (promoted
   from `@State` in `PultApp` to a shared instance) so intents and UI drive the same
   session.
 - **`RemoteSessionAttributes: ActivityAttributes`** — fixed: device id + name;

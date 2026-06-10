@@ -1,6 +1,9 @@
 import AppIntents
 import Foundation
 import PultCore
+#if canImport(ActivityKit) && os(iOS)
+import ActivityKit
+#endif
 
 #if os(iOS)
 /// LiveActivityIntent makes the system run perform() in the app's own
@@ -153,6 +156,12 @@ struct StartRemoteSessionIntent: HeadlessRemoteIntent {
         await RemoteActivityController.shared.startOrUpdate(
             for: device, state: model.session.connectionState
         )
+        if !ActivityAuthorizationInfo().areActivitiesEnabled,
+           model.session.connectionState == .connected {
+            return .result(dialog: IntentDialog(stringLiteral:
+                "Connected to \(device.name). Enable Live Activities in Settings to get the Lock Screen remote."
+            ))
+        }
         #endif
         if case let .failed(message) = model.session.connectionState {
             return .result(dialog: IntentDialog(stringLiteral: message))

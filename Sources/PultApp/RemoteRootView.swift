@@ -123,7 +123,7 @@ struct RemoteRootView: View {
     }
 
     private func connectSelectedDevice() {
-        Task { await model.connectSelectedDevice() }
+        Task { await autoConnectIfNeeded() }
     }
 
     private func send(_ key: RemoteKey) {
@@ -138,6 +138,9 @@ struct RemoteRootView: View {
     private func autoConnectIfNeeded() async {
         await model.ensureConnected()
         #if canImport(ActivityKit) && os(iOS)
+        if let device = model.selectedDevice {
+            await RemoteActivityController.shared.endActivities(notMatching: device.id)
+        }
         if let device = model.selectedDevice, model.session.connectionState == .connected {
             await RemoteActivityController.shared.startOrUpdate(for: device, state: .connected)
         }

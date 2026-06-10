@@ -34,6 +34,15 @@ final class RemoteActivityController {
         await activity.update(Self.content(for: state, message: message))
     }
 
+    /// Switching TVs replaces the lock-screen remote; if the new TV never
+    /// connects, the old TV's remote must still come down rather than
+    /// silently driving a different device.
+    func endActivities(notMatching deviceID: UUID) async {
+        for activity in Activity<RemoteSessionAttributes>.activities where activity.attributes.deviceID != deviceID {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+
     func endAll() async {
         for activity in Activity<RemoteSessionAttributes>.activities {
             await activity.end(nil, dismissalPolicy: .immediate)

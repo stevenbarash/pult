@@ -4,6 +4,7 @@
 
 - `Sources/PultApp`: SwiftUI iOS app target, App Intents, Xcode device-run surface.
 - `Sources/PultCore`: protocol, transport, storage, session, and model code shared by app and checks.
+- `Sources/PultWidgets`: WidgetKit appex (Live Activity remote + controls), Xcode-only target — not part of Package.swift.
 - `Sources/PultCoreCheck`: runnable SwiftPM smoke checks for environments where `swift test` is not usable.
 - `Tests/PultCoreTests`: Swift Testing unit tests for full Xcode/Swift toolchains.
 - `Pult.xcodeproj`: device-installable iOS app project. `Package.swift` alone does not install an iOS app bundle.
@@ -14,6 +15,7 @@
 - Text entry over the v2 IME channel is not implemented; `RemoteCommand.text` throws `unsupportedCommand`.
 - Manual IP entry is the supported device-discovery path. Bonjour/local-network service discovery is not implemented yet.
 - `Pult Direct` and `Pult Release Direct` schemes exist because iOS beta device runs may crash under Xcode debugger injection.
+- The lock-screen remote (Live Activity, controls, and headless intents) is implemented but not yet validated on a physical device; do not claim locked-screen behavior works end to end.
 
 ## Verification
 
@@ -23,10 +25,10 @@ Use the narrowest check that matches the change:
 - Core behavior changes: `make core-check`
 - Test changes or full Xcode toolchain available: `swift test`
 - App/core Swift file additions or moves: `make xcode-project-check`
-- Project/scheme/plist edits: `xmllint --noout Pult.xcodeproj/xcshareddata/xcschemes/*.xcscheme` and `plutil -lint Pult.xcodeproj/project.pbxproj Sources/PultApp/Supporting/Info.plist`
+- Project/scheme/plist edits: `xmllint --noout Pult.xcodeproj/xcshareddata/xcschemes/*.xcscheme` and `plutil -lint Pult.xcodeproj/project.pbxproj Sources/PultApp/Supporting/Info.plist Sources/PultWidgets/Supporting/Info.plist Sources/PultApp/Pult.entitlements Sources/PultWidgets/PultWidgets.entitlements` (see `make metadata-check`)
 
 Prefer `make verify` for the default local agent check. It redirects `HOME` into `.build/home` and uses SwiftPM's `--disable-sandbox` flag because Codex already provides the outer workspace sandbox and this local Command Line Tools install can fail when nested SwiftPM tooling writes outside the workspace.
-It also checks that Swift files in `Sources/PultApp` and `Sources/PultCore` are present in the matching Xcode groups and target source build phases.
+It also checks that Swift files in `Sources/PultApp`, `Sources/PultCore`, and `Sources/PultWidgets` are present in the matching Xcode groups and target source build phases.
 
 `swift test` may fail in command-line-tool-only environments with `no such module 'Testing'`. Treat that as a toolchain issue if `swift build` and `swift run PultCoreCheck` pass; use Xcode 26+ or a matching full Xcode developer directory for Swift Testing.
 
