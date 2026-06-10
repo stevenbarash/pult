@@ -43,14 +43,14 @@ struct RemoteLiveActivity: Widget {
     }
 }
 
-/// The lock-screen mini-remote. Lives inside the ~162 pt Live Activity
-/// budget: one status row (~26 pt), spacing 8, d-pad 3×36 + 0 spacing = 108,
-/// plus vertical padding 20 → total ≈ 162 pt.
+/// The lock-screen mini-remote. Lives inside the ~160 pt Live Activity
+/// budget: status row 34 pt (26 pt buttons + 2×4 pt hit padding), spacing 6,
+/// d-pad 3×36 + 0 spacing = 108, vertical padding 12 → total ≈ 160 pt.
 private struct LockScreenRemoteView: View {
     let context: ActivityViewContext<RemoteSessionAttributes>
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             HStack(spacing: 8) {
                 StatusDot(status: context.state.status)
                 Text(context.attributes.deviceName)
@@ -94,7 +94,7 @@ private struct LockScreenRemoteView: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.vertical, 6)
         .foregroundStyle(.white)
     }
 }
