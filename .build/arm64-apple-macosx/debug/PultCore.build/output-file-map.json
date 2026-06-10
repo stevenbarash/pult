@@ -1,0 +1,124 @@
+{
+  "": {
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/primary.swiftdeps"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/ASN1DER.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ASN1DER.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ASN1DER.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ASN1DER~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ASN1DER.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ASN1DER.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/ClientIdentity.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ClientIdentity.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ClientIdentity.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ClientIdentity~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ClientIdentity.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ClientIdentity.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/DeviceDiscovery.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/DeviceDiscovery.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/DeviceDiscovery.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/DeviceDiscovery~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/DeviceDiscovery.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/DeviceDiscovery.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/DeviceRecord.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/DeviceRecord.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/DeviceRecord.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/DeviceRecord~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/DeviceRecord.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/DeviceRecord.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/PairingCode.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingCode.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingCode.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingCode~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingCode.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingCode.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/PairingMessages.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingMessages.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingMessages.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingMessages~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingMessages.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingMessages.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/PairingSecret.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingSecret.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingSecret.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingSecret~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingSecret.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingSecret.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/PairingSession.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingSession.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingSession.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingSession~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingSession.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/PairingSession.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/ProtobufCoding.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ProtobufCoding.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ProtobufCoding.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ProtobufCoding~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ProtobufCoding.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ProtobufCoding.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/ReconnectionBackoff.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ReconnectionBackoff.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ReconnectionBackoff.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ReconnectionBackoff~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ReconnectionBackoff.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/ReconnectionBackoff.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/RemoteControlModel.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteControlModel.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteControlModel.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteControlModel~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteControlModel.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteControlModel.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/RemoteKey.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteKey.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteKey.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteKey~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteKey.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteKey.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/RemoteMessageCodec.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteMessageCodec.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteMessageCodec.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteMessageCodec~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteMessageCodec.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteMessageCodec.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/RemoteSession.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteSession.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteSession.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteSession~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteSession.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteSession.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/RemoteTransport.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteTransport.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteTransport.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteTransport~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteTransport.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/RemoteTransport.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/VarintFramer.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/VarintFramer.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/VarintFramer.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/VarintFramer~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/VarintFramer.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/VarintFramer.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCore/X509SelfSignedCertificate.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/X509SelfSignedCertificate.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/X509SelfSignedCertificate.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/X509SelfSignedCertificate~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/X509SelfSignedCertificate.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/X509SelfSignedCertificate.dia"
+  }
+}

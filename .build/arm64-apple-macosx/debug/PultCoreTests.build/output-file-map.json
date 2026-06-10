@@ -1,0 +1,96 @@
+{
+  "": {
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/primary.swiftdeps"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/ASN1DERTests.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ASN1DERTests.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ASN1DERTests.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ASN1DERTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ASN1DERTests.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ASN1DERTests.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/DeviceDiscoveryTests.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/DeviceDiscoveryTests.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/DeviceDiscoveryTests.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/DeviceDiscoveryTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/DeviceDiscoveryTests.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/DeviceDiscoveryTests.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/PairingCodeTests.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingCodeTests.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingCodeTests.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingCodeTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingCodeTests.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingCodeTests.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/PairingMessagesTests.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingMessagesTests.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingMessagesTests.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingMessagesTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingMessagesTests.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingMessagesTests.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/PairingSecretTests.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingSecretTests.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingSecretTests.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingSecretTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingSecretTests.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingSecretTests.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/PairingSessionTests.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingSessionTests.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingSessionTests.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingSessionTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingSessionTests.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/PairingSessionTests.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/ProtobufCodingTests.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ProtobufCodingTests.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ProtobufCodingTests.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ProtobufCodingTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ProtobufCodingTests.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ProtobufCodingTests.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/ReconnectionBackoffTests.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ReconnectionBackoffTests.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ReconnectionBackoffTests.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ReconnectionBackoffTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ReconnectionBackoffTests.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/ReconnectionBackoffTests.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/RemoteKeyTests.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteKeyTests.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteKeyTests.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteKeyTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteKeyTests.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteKeyTests.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/RemoteMessageCodecTests.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteMessageCodecTests.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteMessageCodecTests.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteMessageCodecTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteMessageCodecTests.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteMessageCodecTests.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/RemoteSessionTests.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteSessionTests.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteSessionTests.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteSessionTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteSessionTests.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/RemoteSessionTests.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/TestSupport.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/TestSupport.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/TestSupport.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/TestSupport~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/TestSupport.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/TestSupport.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Tests/PultCoreTests/VarintFramerTests.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/VarintFramerTests.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/VarintFramerTests.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/VarintFramerTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/VarintFramerTests.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreTests.build/VarintFramerTests.dia"
+  }
+}

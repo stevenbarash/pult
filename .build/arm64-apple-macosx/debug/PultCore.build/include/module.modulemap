@@ -1,0 +1,3 @@
+module PultCore {
+    header "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCore.build/include/PultCore-Swift.h"
+}

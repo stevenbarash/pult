@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultPackageTests.build/primary.swiftdeps"
+  },
+  "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultPackageTests.derived/runner.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultPackageTests.build/runner.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultPackageTests.build/runner.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultPackageTests.build/runner~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultPackageTests.build/runner.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultPackageTests.build/runner.dia"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "": {
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreCheck.build/primary.swiftdeps"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCoreCheck/MockRemoteTransport.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreCheck.build/MockRemoteTransport.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreCheck.build/MockRemoteTransport.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreCheck.build/MockRemoteTransport~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreCheck.build/MockRemoteTransport.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreCheck.build/MockRemoteTransport.dia"
+  },
+  "/Users/nyetwork/Developer/pult/Sources/PultCoreCheck/main.swift": {
+    "dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreCheck.build/main.d",
+    "object": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreCheck.build/main.swift.o",
+    "swiftmodule": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreCheck.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreCheck.build/main.swiftdeps",
+    "diagnostics": "/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreCheck.build/main.dia"
+  }
+}
