@@ -1,3 +1,5 @@
 .build/
 .DS_Store
 .swiftpm/
+**/xcuserdata/**/UserInterfaceState.xcuserstate
+**/.DS_Store
