@@ -4,6 +4,8 @@ PULT_APP_GROUP = 010000000000000000000604
 PULT_CORE_GROUP = 010000000000000000000605
 PULT_APP_SOURCES = 010000000000000000000521
 PULT_CORE_SOURCES = 010000000000000000000522
+PULT_WIDGETS_GROUP = 010000000000000000000606
+PULT_WIDGETS_SOURCES = 010000000000000000000523
 
 .PHONY: build core-check metadata-check test verify xcode-project-check
 
@@ -15,7 +17,7 @@ core-check:
 
 metadata-check:
 	xmllint --noout Pult.xcodeproj/xcshareddata/xcschemes/*.xcscheme
-	plutil -lint $(XCODE_PROJECT) Sources/PultApp/Supporting/Info.plist Pult.xcodeproj/xcuserdata/nyetwork.xcuserdatad/xcschemes/xcschememanagement.plist
+	plutil -lint $(XCODE_PROJECT) Sources/PultApp/Supporting/Info.plist Pult.xcodeproj/xcuserdata/nyetwork.xcuserdatad/xcschemes/xcschememanagement.plist Sources/PultWidgets/Supporting/Info.plist Sources/PultApp/Pult.entitlements Sources/PultWidgets/PultWidgets.entitlements
 
 xcode-project-check:
 	@missing=0; \
@@ -66,6 +68,15 @@ xcode-project-check:
 		fi; \
 		check_section "$(PULT_CORE_GROUP)" "$$name" "PultCore group" "$$file"; \
 		check_sources_phase "$(PULT_CORE_SOURCES)" "$$name" "PultCore target" "$$file"; \
+	done; \
+	for file in Sources/PultWidgets/*.swift; do \
+		name=$$(basename "$$file"); \
+		if ! grep -Fq "path = $$name;" "$(XCODE_PROJECT)"; then \
+			echo "Missing Xcode file reference: $$file"; \
+			missing=1; \
+		fi; \
+		check_section "$(PULT_WIDGETS_GROUP)" "$$name" "PultWidgets group" "$$file"; \
+		check_sources_phase "$(PULT_WIDGETS_SOURCES)" "$$name" "PultWidgets target" "$$file"; \
 	done; \
 	exit $$missing
 

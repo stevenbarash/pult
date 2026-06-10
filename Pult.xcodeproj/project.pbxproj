@@ -37,10 +37,32 @@
 		010000000000000000000031 /* TouchpadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000131 /* TouchpadView.swift */; };
 		010000000000000000000032 /* RemoteSessionActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000132 /* RemoteSessionActivity.swift */; };
 		010000000000000000000033 /* RemoteActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000133 /* RemoteActivityController.swift */; };
+		010000000000000000000034 /* PultWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000134 /* PultWidgetsBundle.swift */; };
+		010000000000000000000035 /* RemoteLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000135 /* RemoteLiveActivity.swift */; };
+		010000000000000000000036 /* PultControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000136 /* PultControls.swift */; };
+		010000000000000000000037 /* RemoteIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000105 /* RemoteIntents.swift */; };
+		010000000000000000000038 /* RemoteSessionActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000132 /* RemoteSessionActivity.swift */; };
+		010000000000000000000039 /* PultCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 010000000000000000000202 /* PultCore.framework */; };
+		010000000000000000000040 /* PultWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 010000000000000000000203 /* PultWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		010000000000000000000041 /* RemoteActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000133 /* RemoteActivityController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		010000000000000000000301 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 010000000000000000000900 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 010000000000000000000402;
+			remoteInfo = PultCore;
+		};
+		010000000000000000000303 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 010000000000000000000900 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 010000000000000000000403;
+			remoteInfo = PultWidgets;
+		};
+		010000000000000000000305 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 010000000000000000000900 /* Project object */;
 			proxyType = 1;
@@ -59,6 +81,17 @@
 				010000000000000000000007 /* PultCore.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		010000000000000000000503 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				010000000000000000000040 /* PultWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -93,8 +126,15 @@
 		010000000000000000000131 /* TouchpadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchpadView.swift; sourceTree = "<group>"; };
 		010000000000000000000132 /* RemoteSessionActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteSessionActivity.swift; sourceTree = "<group>"; };
 		010000000000000000000133 /* RemoteActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteActivityController.swift; sourceTree = "<group>"; };
+		010000000000000000000134 /* PultWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PultWidgetsBundle.swift; sourceTree = "<group>"; };
+		010000000000000000000135 /* RemoteLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteLiveActivity.swift; sourceTree = "<group>"; };
+		010000000000000000000136 /* PultControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PultControls.swift; sourceTree = "<group>"; };
+		010000000000000000000137 /* Supporting/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Supporting/Info.plist; sourceTree = "<group>"; };
+		010000000000000000000138 /* Pult.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Pult.entitlements; sourceTree = "<group>"; };
+		010000000000000000000139 /* PultWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PultWidgets.entitlements; sourceTree = "<group>"; };
 		010000000000000000000201 /* Pult.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pult.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		010000000000000000000202 /* PultCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PultCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		010000000000000000000203 /* PultWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PultWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,6 +150,14 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		010000000000000000000513 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				010000000000000000000039 /* PultCore.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -129,6 +177,7 @@
 			children = (
 				010000000000000000000604 /* PultApp */,
 				010000000000000000000605 /* PultCore */,
+				010000000000000000000606 /* PultWidgets */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -138,6 +187,7 @@
 			children = (
 				010000000000000000000201 /* Pult.app */,
 				010000000000000000000202 /* PultCore.framework */,
+				010000000000000000000203 /* PultWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -156,6 +206,7 @@
 				010000000000000000000129 /* PairingView.swift */,
 				010000000000000000000130 /* RemoteControls.swift */,
 				010000000000000000000131 /* TouchpadView.swift */,
+				010000000000000000000138 /* Pult.entitlements */,
 				010000000000000000000106 /* Supporting/Info.plist */,
 			);
 			path = PultApp;
@@ -185,6 +236,18 @@
 			path = PultCore;
 			sourceTree = "<group>";
 		};
+		010000000000000000000606 /* PultWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				010000000000000000000134 /* PultWidgetsBundle.swift */,
+				010000000000000000000135 /* RemoteLiveActivity.swift */,
+				010000000000000000000136 /* PultControls.swift */,
+				010000000000000000000139 /* PultWidgets.entitlements */,
+				010000000000000000000137 /* Supporting/Info.plist */,
+			);
+			path = PultWidgets;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -195,11 +258,13 @@
 				010000000000000000000521 /* Sources */,
 				010000000000000000000511 /* Frameworks */,
 				010000000000000000000502 /* Embed Frameworks */,
+				010000000000000000000503 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				010000000000000000000302 /* PBXTargetDependency */,
+				010000000000000000000304 /* PBXTargetDependency */,
 			);
 			name = Pult;
 			productName = Pult;
@@ -222,6 +287,23 @@
 			productReference = 010000000000000000000202 /* PultCore.framework */;
 			productType = "com.apple.product-type.framework";
 		};
+		010000000000000000000403 /* PultWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 010000000000000000000703 /* Build configuration list for PBXNativeTarget "PultWidgets" */;
+			buildPhases = (
+				010000000000000000000523 /* Sources */,
+				010000000000000000000513 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				010000000000000000000306 /* PBXTargetDependency */,
+			);
+			name = PultWidgets;
+			productName = PultWidgets;
+			productReference = 010000000000000000000203 /* PultWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -236,6 +318,9 @@
 						CreatedOnToolsVersion = 26.0;
 					};
 					010000000000000000000402 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					010000000000000000000403 = {
 						CreatedOnToolsVersion = 26.0;
 					};
 				};
@@ -255,6 +340,7 @@
 			targets = (
 				010000000000000000000401 /* Pult */,
 				010000000000000000000402 /* PultCore */,
+				010000000000000000000403 /* PultWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -302,6 +388,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		010000000000000000000523 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				010000000000000000000034 /* PultWidgetsBundle.swift in Sources */,
+				010000000000000000000035 /* RemoteLiveActivity.swift in Sources */,
+				010000000000000000000036 /* PultControls.swift in Sources */,
+				010000000000000000000037 /* RemoteIntents.swift in Sources */,
+				010000000000000000000038 /* RemoteSessionActivity.swift in Sources */,
+				010000000000000000000041 /* RemoteActivityController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -309,6 +408,16 @@
 			isa = PBXTargetDependency;
 			target = 010000000000000000000402 /* PultCore */;
 			targetProxy = 010000000000000000000301 /* PBXContainerItemProxy */;
+		};
+		010000000000000000000304 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 010000000000000000000403 /* PultWidgets */;
+			targetProxy = 010000000000000000000303 /* PBXContainerItemProxy */;
+		};
+		010000000000000000000306 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 010000000000000000000402 /* PultCore */;
+			targetProxy = 010000000000000000000305 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -435,6 +544,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sources/PultApp/Pult.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
@@ -462,6 +572,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Sources/PultApp/Pult.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 4HZ5WYBH8E;
@@ -528,6 +639,60 @@
 			};
 			name = Release;
 		};
+		010000000000000000000740 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Sources/PultWidgets/PultWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4HZ5WYBH8E;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Sources/PultWidgets/Supporting/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.pult.Pult.PultWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		010000000000000000000741 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Sources/PultWidgets/PultWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4HZ5WYBH8E;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Sources/PultWidgets/Supporting/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.pult.Pult.PultWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -554,6 +719,15 @@
 			buildConfigurations = (
 				010000000000000000000730 /* Debug */,
 				010000000000000000000731 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		010000000000000000000703 /* Build configuration list for PBXNativeTarget "PultWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				010000000000000000000740 /* Debug */,
+				010000000000000000000741 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

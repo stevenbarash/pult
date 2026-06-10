@@ -40,7 +40,7 @@ final class RemoteActivityController {
         }
     }
 
-    private static func activity(for deviceID: UUID) -> Activity<RemoteSessionAttributes>? {
+    private nonisolated static func activity(for deviceID: UUID) -> Activity<RemoteSessionAttributes>? {
         Activity<RemoteSessionAttributes>.activities.first { $0.attributes.deviceID == deviceID }
     }
 
