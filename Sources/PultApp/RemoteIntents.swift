@@ -1,9 +1,12 @@
 import AppIntents
 import Foundation
+import OSLog
 import PultCore
 #if canImport(ActivityKit) && os(iOS)
 import ActivityKit
 #endif
+
+private let intentLogger = Logger(subsystem: "app.pult", category: "intents")
 
 #if os(iOS)
 /// LiveActivityIntent makes the system run perform() in the app's own
@@ -147,10 +150,20 @@ struct StartRemoteSessionIntent: HeadlessRemoteIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        // The process name tells us whether the system honored the
+        // LiveActivityIntent app-process routing (it must say "Pult", not
+        // "PultWidgets") — the key diagnostic for control presses.
+        intentLogger.error("StartRemoteSessionIntent in \(ProcessInfo.processInfo.processName, privacy: .public)")
         let model = SharedRemote.model
         guard let device = model.selectedDevice, device.isPaired else {
             return .result(dialog: "Open Pult and pair a TV first.")
         }
+        // The remote appears on the lock screen immediately, in "connecting"
+        // state, BEFORE the dial: instant feedback for the Control Center /
+        // Action button press, and the status updates once the dial settles.
+        #if canImport(ActivityKit) && os(iOS)
+        await RemoteActivityController.shared.startOrUpdate(for: device, state: .connecting)
+        #endif
         await model.ensureConnected()
         #if canImport(ActivityKit) && os(iOS)
         await RemoteActivityController.shared.startOrUpdate(

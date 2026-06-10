@@ -1,7 +1,10 @@
 #if canImport(ActivityKit) && os(iOS)
 import ActivityKit
 import Foundation
+import OSLog
 import PultCore
+
+private let logger = Logger(subsystem: "app.pult", category: "live-activity")
 
 /// Owns the lock-screen remote Live Activity. Lives in the app process only;
 /// intents and the UI both run there, so every update flows through here.
@@ -12,7 +15,10 @@ final class RemoteActivityController {
     private init() {}
 
     func startOrUpdate(for device: DeviceRecord, state: ConnectionState, message: String? = nil) async {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            logger.error("startOrUpdate skipped: Live Activities are disabled for the app")
+            return
+        }
         let content = Self.content(for: state, message: message)
         if let activity = Self.activity(for: device.id) {
             await activity.update(content)
@@ -22,10 +28,17 @@ final class RemoteActivityController {
         for stale in Activity<RemoteSessionAttributes>.activities {
             await stale.end(nil, dismissalPolicy: .immediate)
         }
-        _ = try? Activity<RemoteSessionAttributes>.request(
-            attributes: RemoteSessionAttributes(deviceID: device.id, deviceName: device.name),
-            content: content
-        )
+        do {
+            _ = try Activity<RemoteSessionAttributes>.request(
+                attributes: RemoteSessionAttributes(deviceID: device.id, deviceName: device.name),
+                content: content
+            )
+        } catch {
+            // Diagnosable on device via Console (subsystem app.pult). A
+            // request can fail when the system denies a background start —
+            // worth knowing rather than silently showing nothing.
+            logger.error("Activity.request failed in \(ProcessInfo.processInfo.processName, privacy: .public): \(String(describing: error), privacy: .public)")
+        }
     }
 
     func noteOutcome(_ outcome: HeadlessCommandOutcome, device: DeviceRecord, state: ConnectionState) async {
