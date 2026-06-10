@@ -322,6 +322,7 @@
 					};
 					010000000000000000000403 = {
 						CreatedOnToolsVersion = 26.0;
+						SuppressBuildableAutocreation = 1;
 					};
 				};
 			};
@@ -598,6 +599,7 @@
 		010000000000000000000730 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -620,6 +622,7 @@
 		010000000000000000000731 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_STYLE = Automatic;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -646,6 +649,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 4HZ5WYBH8E;
+				ENABLE_DEBUG_DYLIB = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Sources/PultWidgets/Supporting/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -673,6 +677,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 4HZ5WYBH8E;
+				ENABLE_DEBUG_DYLIB = NO;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Sources/PultWidgets/Supporting/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
