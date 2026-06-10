@@ -51,7 +51,7 @@ func headlessCommandFailsWithoutPairedSelection() async {
 
 @MainActor
 @Test
-func headlessCommandReportsUnreachableTV() async {
+func headlessCommandReportsUnreachableTVByName() async {
     let device = DeviceRecord(name: "TV", host: "192.168.1.10", isPaired: true)
     let model = makeModel(transport: UnreachableTransport(), device: device)
 
@@ -61,7 +61,7 @@ func headlessCommandReportsUnreachableTV() async {
         Issue.record("expected failure")
         return
     }
-    #expect(message.contains("192.168.1.10"))
+    #expect(message.contains("TV"))
 }
 
 @MainActor
@@ -146,4 +146,80 @@ private actor StaleAfterConfigureTransport: RemoteTransport {
     func close() async { closed = true }
 
     func peerRSAPublicKeyParameters() async throws -> RSAPublicKeyParameters? { nil }
+}
+
+/// Like `StaleAfterConfigureTransport` but every non-configure-response send
+/// throws `disconnected`, simulating a transport where keys can never get through.
+private actor DeadSendsTransport: RemoteTransport {
+    private let configureFrame: Data
+    private let configureResponse: Data
+    private(set) var connectCount = 0
+    private var incoming: [Data] = []
+    private var closed = false
+
+    init(configureFrame: Data, configureResponse: Data) {
+        self.configureFrame = configureFrame
+        self.configureResponse = configureResponse
+    }
+
+    func connect(to host: String, port: UInt16) async throws {
+        connectCount += 1
+        closed = false
+        incoming = [configureFrame]
+    }
+
+    func send(_ data: Data) async throws {
+        if data == configureResponse { return }
+        throw RemoteTransportError.disconnected
+    }
+
+    func receive() async throws -> Data {
+        while incoming.isEmpty {
+            if closed { throw RemoteTransportError.disconnected }
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        return incoming.removeFirst()
+    }
+
+    func close() async { closed = true }
+
+    func peerRSAPublicKeyParameters() async throws -> RSAPublicKeyParameters? { nil }
+}
+
+@MainActor
+@Test
+func headlessCommandFailsAfterSingleRedialWhenSendsStayDead() async {
+    let transport = DeadSendsTransport(configureFrame: framer.frame(tvConfigureFrame),
+                                       configureResponse: framer.frame(codec.encodeConfigureResponse()))
+    let device = DeviceRecord(name: "TV", host: "192.168.1.10", isPaired: true)
+    let model = makeModel(transport: transport, device: device)
+
+    let outcome = await model.performHeadlessCommand(.home)
+
+    guard case let .failed(message) = outcome else {
+        Issue.record("expected failure")
+        return
+    }
+    #expect(message.contains("TV"))
+    let dialCount = await transport.connectCount
+    #expect(dialCount == 2) // exactly one redial, no retry loop
+}
+
+@MainActor
+@Test
+func concurrentHeadlessCommandsSerializeOntoOneConnection() async throws {
+    let transport = MockTransport()
+    let device = DeviceRecord(name: "TV", host: "192.168.1.10", isPaired: true)
+    let model = makeModel(transport: transport, device: device)
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+
+    let first = Task { await model.performHeadlessCommand(.volumeUp) }
+    let second = Task { await model.performHeadlessCommand(.volumeUp) }
+    let outcomes = await [first.value, second.value]
+
+    #expect(outcomes == [.sent, .sent])
+    let dialCount = await transport.connectCount
+    #expect(dialCount == 1) // second call reuses the session the first established
+    let sent = await transport.waitForSent(count: 3) // configure response + 2 keys
+    #expect(sent.count == 3)
 }

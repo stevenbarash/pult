@@ -17,6 +17,7 @@ public final class RemoteControlModel {
     private let identityProvider: any ClientIdentityProviding
     private let makePairingTransport: @Sendable () -> any RemoteTransport
     private var pairingSession: PairingSession?
+    private var headlessTask: Task<HeadlessCommandOutcome, Never>?
 
     public init(
         discovery: DeviceDiscovery = DeviceDiscovery(),
@@ -50,11 +51,23 @@ public final class RemoteControlModel {
     }
 
     /// Sends a key without any UI in the loop — the path used by App Intents
-    /// fired from the Lock Screen, Control Center, and Siri. Reuses a live
-    /// session when possible and redials once when a connection that still
-    /// claims to be connected turns out dead (typical after the app spent
-    /// time suspended in the background).
+    /// fired from the Lock Screen, Control Center, and Siri. Calls are
+    /// serialized: rapid taps queue up rather than interleaving their
+    /// connect/press/redial sequences and tearing down each other's sockets.
     public func performHeadlessCommand(_ key: RemoteKey) async -> HeadlessCommandOutcome {
+        let previous = headlessTask
+        let task = Task { () -> HeadlessCommandOutcome in
+            _ = await previous?.value
+            return await self.executeHeadlessCommand(key)
+        }
+        headlessTask = task
+        return await task.value
+    }
+
+    /// Reuses a live session when possible and redials once when a connection
+    /// that still claims to be connected turns out dead (typical after the app
+    /// spent time suspended in the background).
+    private func executeHeadlessCommand(_ key: RemoteKey) async -> HeadlessCommandOutcome {
         guard let selectedDevice, selectedDevice.isPaired else {
             return .failed("Open Pult and pair a TV first.")
         }
@@ -69,13 +82,18 @@ public final class RemoteControlModel {
 
         // Fresh dial: either the first connect failed outright, or the press
         // above killed a stale connection.
+        //
+        // A send that fails on a dead socket almost certainly never reached the
+        // TV, so resending on the fresh connection is safe for the common case.
+        // In the rare window where delivery succeeded but the read loop flagged
+        // death concurrently, a duplicated d-pad/volume key is harmless.
         await session.connect(to: selectedDevice)
         guard session.connectionState == .connected else {
-            return .failed(session.lastError ?? "Could not reach \(selectedDevice.name).")
+            return .failed("Could not reach \(selectedDevice.name).")
         }
         await session.press(key)
         guard session.connectionState == .connected else {
-            return .failed(session.lastError ?? "Lost the connection to \(selectedDevice.name).")
+            return .failed("Lost the connection to \(selectedDevice.name).")
         }
         return .sent
     }
