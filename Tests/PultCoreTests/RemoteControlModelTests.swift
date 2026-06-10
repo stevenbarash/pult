@@ -18,6 +18,20 @@ func restoresPersistedSelectionOverFirstDevice() {
 
 @MainActor
 @Test
+func danglingPersistedSelectionFallsBackAndRepairsStore() {
+    let store = MemoryDeviceStore()
+    let only = DeviceRecord(name: "Bedroom", host: "10.0.0.1")
+    store.records = [only]
+    store.selectedID = UUID() // device no longer exists
+
+    let model = RemoteControlModel(discovery: DeviceDiscovery(store: store))
+
+    #expect(model.selectedDevice?.id == only.id)
+    #expect(store.selectedID == only.id)
+}
+
+@MainActor
+@Test
 func selectingDevicePersistsSelection() {
     let store = MemoryDeviceStore()
     let first = DeviceRecord(name: "Bedroom", host: "10.0.0.1")

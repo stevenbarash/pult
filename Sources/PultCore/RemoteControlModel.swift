@@ -25,6 +25,7 @@ public final class RemoteControlModel {
         self.makePairingTransport = makePairingTransport
         self.selectedDevice = discovery.devices.first(where: { $0.id == discovery.selectedDeviceID })
             ?? discovery.devices.first
+        discovery.selectedDeviceID = selectedDevice?.id
     }
 
     public func addManualDevice(name: String, host: String) {

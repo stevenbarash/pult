@@ -36,6 +36,20 @@ func migratesLegacyDevicesIntoGroupSuiteOnce() {
     #expect(store.loadDevices().isEmpty)
 }
 
+@Test
+func migratesLegacySelectionOnLoadSelectedDeviceID() {
+    let legacy = makeSuite("pult.tests.legacy2")
+    let group = makeSuite("pult.tests.group2")
+    let legacyStore = UserDefaultsDeviceStore(defaults: legacy, legacyDefaults: legacy)
+    let device = DeviceRecord(name: "Old TV", host: "10.0.0.9")
+    legacyStore.saveDevices([device])
+    legacyStore.saveSelectedDeviceID(device.id)
+
+    let store = UserDefaultsDeviceStore(defaults: group, legacyDefaults: legacy)
+    // Call loadSelectedDeviceID() WITHOUT calling loadDevices() first — fix 1 pins this.
+    #expect(store.loadSelectedDeviceID() == device.id)
+}
+
 @MainActor
 @Test
 func discoveryPersistsSelection() {

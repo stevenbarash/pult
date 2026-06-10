@@ -4,8 +4,11 @@ import Observation
 public enum PultAppGroup {
     public static let identifier = "group.app.pult"
 
-    /// The shared suite when the App Group entitlement is present; standard
-    /// defaults otherwise (SwiftPM checks, simulator without entitlements).
+    /// The "group.app.pult" suite. Without the App Group entitlement this is
+    /// still a real, writable domain — just private to the current process's
+    /// sandbox rather than shared with the widget extension. The fallback to
+    /// .standard only covers degenerate cases where the suite cannot be
+    /// created at all.
     public static func sharedDefaults() -> UserDefaults {
         UserDefaults(suiteName: identifier) ?? .standard
     }
@@ -48,7 +51,8 @@ public struct UserDefaultsDeviceStore: DeviceStore {
     }
 
     public func loadSelectedDeviceID() -> UUID? {
-        defaults.string(forKey: selectionKey).flatMap(UUID.init(uuidString:))
+        migrateLegacyDevicesIfNeeded()
+        return defaults.string(forKey: selectionKey).flatMap(UUID.init(uuidString:))
     }
 
     public func saveSelectedDeviceID(_ id: UUID?) {
