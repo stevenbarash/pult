@@ -27,6 +27,9 @@ public final class KeychainClientIdentityStore: ClientIdentityProviding, @unchec
     /// Locked-screen intents must load the identity for mutual TLS, so iOS
     /// items use after-first-unlock protection. The macOS file keychain does
     /// not support data-protection classes; there accessibility stays nil.
+    /// The migratory (non-ThisDeviceOnly) variant is deliberate so the identity
+    /// survives encrypted backup/device migration and pairing carries over,
+    /// matching the migratory default it replaces.
     public static var defaultAccessibility: CFString? {
         #if os(iOS)
         kSecAttrAccessibleAfterFirstUnlock
@@ -38,14 +41,20 @@ public final class KeychainClientIdentityStore: ClientIdentityProviding, @unchec
     private let accessibility: CFString?
     private var didUpgradeAccessibility = false
 
+    public typealias KeychainUpdate = (_ query: CFDictionary, _ attributesToUpdate: CFDictionary) -> OSStatus
+
+    private let updateItem: KeychainUpdate
+
     public init(
         certificateLabel: String = "app.pult.client-identity",
         keyTag: String = "app.pult.client-key",
-        accessibility: CFString? = KeychainClientIdentityStore.defaultAccessibility
+        accessibility: CFString? = KeychainClientIdentityStore.defaultAccessibility,
+        updateItem: @escaping KeychainUpdate = { SecItemUpdate($0, $1) }
     ) {
         self.certificateLabel = certificateLabel
         self.keyTag = Data(keyTag.utf8)
         self.accessibility = accessibility
+        self.updateItem = updateItem
     }
 
     public func identity() throws -> SecIdentity {
@@ -71,11 +80,11 @@ public final class KeychainClientIdentityStore: ClientIdentityProviding, @unchec
 
     private func loadOrCreateIdentity() throws -> SecIdentity {
         upgradeAccessibilityIfNeeded()
-        if let identity = copyIdentity() {
+        if let identity = try copyIdentity() {
             return identity
         }
         try createIdentity()
-        guard let identity = copyIdentity() else {
+        guard let identity = try copyIdentity() else {
             throw ClientIdentityError.identityUnavailable
         }
         return identity
@@ -83,20 +92,26 @@ public final class KeychainClientIdentityStore: ClientIdentityProviding, @unchec
 
     /// Items created before the lock-screen feature carry when-unlocked
     /// protection; move them to the configured class so background intents
-    /// can present the identity. Missing items (first run) are fine.
-    private func upgradeAccessibilityIfNeeded() {
+    /// can present the identity. Missing items (first run) are fine. A
+    /// locked keychain (errSecInteractionNotAllowed) is not: leave the latch
+    /// unset so the next access — typically with the phone unlocked — retries.
+    func upgradeAccessibilityIfNeeded() {
         guard let accessibility, !didUpgradeAccessibility else { return }
-        didUpgradeAccessibility = true
+        var allSettled = true
         for upgrade in Self.accessibilityUpgrades(
             keyTag: keyTag,
             certificateLabel: certificateLabel,
             accessibility: accessibility
         ) {
-            _ = SecItemUpdate(upgrade.query as CFDictionary, upgrade.update as CFDictionary)
+            let status = updateItem(upgrade.query as CFDictionary, upgrade.update as CFDictionary)
+            if status != errSecSuccess && status != errSecItemNotFound {
+                allSettled = false
+            }
         }
+        didUpgradeAccessibility = allSettled
     }
 
-    private func copyIdentity() -> SecIdentity? {
+    private func copyIdentity() throws -> SecIdentity? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassIdentity,
             kSecAttrLabel as String: certificateLabel,
@@ -105,8 +120,18 @@ public final class KeychainClientIdentityStore: ClientIdentityProviding, @unchec
         ]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
-        guard status == errSecSuccess, let item else { return nil }
-        return (item as! SecIdentity)
+        switch status {
+        case errSecSuccess:
+            guard let item else { return nil }
+            return (item as! SecIdentity)
+        case errSecItemNotFound:
+            return nil
+        default:
+            // An identity may exist but be unreadable right now (locked
+            // keychain). Creating a replacement would orphan the certificate
+            // the TV trusts, so fail the connection attempt instead.
+            throw ClientIdentityError.keychainFailure(status)
+        }
     }
 
     private func createIdentity() throws {
@@ -176,7 +201,8 @@ public final class KeychainClientIdentityStore: ClientIdentityProviding, @unchec
                 query: [
                     kSecClass as String: kSecClassKey,
                     kSecAttrApplicationTag as String: keyTag,
-                    kSecAttrKeyType as String: kSecAttrKeyTypeRSA
+                    kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+                    kSecAttrKeyClass as String: kSecAttrKeyClassPrivate
                 ],
                 update: update
             ),
