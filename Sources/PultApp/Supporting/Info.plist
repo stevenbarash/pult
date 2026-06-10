@@ -22,6 +22,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Pult connects to Google TV devices on your local network so it can work as a remote control.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

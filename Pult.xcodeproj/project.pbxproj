@@ -12,7 +12,6 @@
 		010000000000000000000003 /* AddDeviceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000103 /* AddDeviceView.swift */; };
 		010000000000000000000004 /* TextEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000104 /* TextEntryView.swift */; };
 		010000000000000000000005 /* RemoteIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000105 /* RemoteIntents.swift */; };
-		010000000000000000000008 /* SharedIntentCommandQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000108 /* SharedIntentCommandQueue.swift */; };
 		010000000000000000000009 /* RemoteControlSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000109 /* RemoteControlSurface.swift */; };
 		010000000000000000000006 /* PultCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 010000000000000000000202 /* PultCore.framework */; };
 		010000000000000000000007 /* PultCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 010000000000000000000202 /* PultCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -36,6 +35,8 @@
 		010000000000000000000029 /* PairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000129 /* PairingView.swift */; };
 		010000000000000000000030 /* RemoteControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000130 /* RemoteControls.swift */; };
 		010000000000000000000031 /* TouchpadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000131 /* TouchpadView.swift */; };
+		010000000000000000000032 /* RemoteSessionActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000132 /* RemoteSessionActivity.swift */; };
+		010000000000000000000033 /* RemoteActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000133 /* RemoteActivityController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,7 +70,6 @@
 		010000000000000000000104 /* TextEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextEntryView.swift; sourceTree = "<group>"; };
 		010000000000000000000105 /* RemoteIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteIntents.swift; sourceTree = "<group>"; };
 		010000000000000000000106 /* Supporting/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Supporting/Info.plist; sourceTree = "<group>"; };
-		010000000000000000000108 /* SharedIntentCommandQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedIntentCommandQueue.swift; sourceTree = "<group>"; };
 		010000000000000000000109 /* RemoteControlSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteControlSurface.swift; sourceTree = "<group>"; };
 		010000000000000000000111 /* PairingCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingCode.swift; sourceTree = "<group>"; };
 		010000000000000000000112 /* DeviceDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceDiscovery.swift; sourceTree = "<group>"; };
@@ -91,6 +91,8 @@
 		010000000000000000000129 /* PairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingView.swift; sourceTree = "<group>"; };
 		010000000000000000000130 /* RemoteControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteControls.swift; sourceTree = "<group>"; };
 		010000000000000000000131 /* TouchpadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchpadView.swift; sourceTree = "<group>"; };
+		010000000000000000000132 /* RemoteSessionActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteSessionActivity.swift; sourceTree = "<group>"; };
+		010000000000000000000133 /* RemoteActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteActivityController.swift; sourceTree = "<group>"; };
 		010000000000000000000201 /* Pult.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pult.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		010000000000000000000202 /* PultCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PultCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -149,7 +151,8 @@
 				010000000000000000000103 /* AddDeviceView.swift */,
 				010000000000000000000104 /* TextEntryView.swift */,
 				010000000000000000000105 /* RemoteIntents.swift */,
-				010000000000000000000108 /* SharedIntentCommandQueue.swift */,
+				010000000000000000000132 /* RemoteSessionActivity.swift */,
+				010000000000000000000133 /* RemoteActivityController.swift */,
 				010000000000000000000129 /* PairingView.swift */,
 				010000000000000000000130 /* RemoteControls.swift */,
 				010000000000000000000131 /* TouchpadView.swift */,
@@ -266,7 +269,8 @@
 				010000000000000000000003 /* AddDeviceView.swift in Sources */,
 				010000000000000000000004 /* TextEntryView.swift in Sources */,
 				010000000000000000000005 /* RemoteIntents.swift in Sources */,
-				010000000000000000000008 /* SharedIntentCommandQueue.swift in Sources */,
+				010000000000000000000032 /* RemoteSessionActivity.swift in Sources */,
+				010000000000000000000033 /* RemoteActivityController.swift in Sources */,
 				010000000000000000000009 /* RemoteControlSurface.swift in Sources */,
 				010000000000000000000029 /* PairingView.swift in Sources */,
 				010000000000000000000030 /* RemoteControls.swift in Sources */,

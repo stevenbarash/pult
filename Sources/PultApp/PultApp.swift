@@ -3,7 +3,9 @@ import PultCore
 
 @main
 struct PultApp: App {
-    @State private var model = RemoteControlModel()
+    // The same instance intents resolve via SharedRemote, so a command sent
+    // from the Lock Screen and the on-screen remote drive one session.
+    private let model = SharedRemote.model
 
     var body: some Scene {
         WindowGroup {

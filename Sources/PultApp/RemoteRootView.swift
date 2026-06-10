@@ -32,12 +32,6 @@ struct RemoteRootView: View {
         .task(id: model.selectedDevice?.id) {
             await autoConnectIfNeeded()
         }
-        .task {
-            await drainIntentCommands()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: SharedIntentCommandQueue.didEnqueueCommand)) { _ in
-            Task { await drainIntentCommands() }
-        }
         .sheet(item: $presentedSheet, onDismiss: {
             // Pairing marks the device as paired; pick up the connection
             // without requiring a manual connect tap.
@@ -143,16 +137,11 @@ struct RemoteRootView: View {
     @MainActor
     private func autoConnectIfNeeded() async {
         await model.ensureConnected()
-    }
-
-    @MainActor
-    private func drainIntentCommands() async {
-        let keys = SharedIntentCommandQueue.shared.drain()
-        guard !keys.isEmpty else { return }
-        await model.ensureConnected()
-        for key in keys {
-            await model.session.press(key)
+        #if canImport(ActivityKit) && os(iOS)
+        if let device = model.selectedDevice, model.session.connectionState == .connected {
+            await RemoteActivityController.shared.startOrUpdate(for: device, state: .connected)
         }
+        #endif
     }
 }
 
