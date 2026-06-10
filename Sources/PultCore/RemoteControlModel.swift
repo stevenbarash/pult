@@ -23,16 +23,19 @@ public final class RemoteControlModel {
         self.session = session
         self.identityProvider = identityProvider
         self.makePairingTransport = makePairingTransport
-        self.selectedDevice = discovery.devices.first
+        self.selectedDevice = discovery.devices.first(where: { $0.id == discovery.selectedDeviceID })
+            ?? discovery.devices.first
     }
 
     public func addManualDevice(name: String, host: String) {
         guard let record = discovery.addManualDevice(name: name, host: host) else { return }
         selectedDevice = record
+        discovery.selectedDeviceID = record.id
     }
 
     public func select(_ device: DeviceRecord) {
         selectedDevice = device
+        discovery.selectedDeviceID = device.id
     }
 
     public func connectSelectedDevice() async {

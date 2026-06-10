@@ -2,14 +2,6 @@ import Foundation
 import Testing
 @testable import PultCore
 
-private final class MemoryDeviceStore: DeviceStore {
-    var records: [DeviceRecord] = []
-
-    func loadDevices() -> [DeviceRecord] { records }
-
-    func saveDevices(_ devices: [DeviceRecord]) { records = devices }
-}
-
 @MainActor
 @Test
 func trimsHostAndFallsBackToHostForWhitespaceName() {

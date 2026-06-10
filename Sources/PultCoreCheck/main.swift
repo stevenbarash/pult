@@ -30,8 +30,11 @@ expect(PairingCode.length == 6, "pairing code length unexpected")
 
 final class MemoryDeviceStore: DeviceStore {
     var records: [DeviceRecord] = []
+    var selectedID: UUID?
     func loadDevices() -> [DeviceRecord] { records }
     func saveDevices(_ devices: [DeviceRecord]) { records = devices }
+    func loadSelectedDeviceID() -> UUID? { selectedID }
+    func saveSelectedDeviceID(_ id: UUID?) { selectedID = id }
 }
 
 let discovery = DeviceDiscovery(store: MemoryDeviceStore())

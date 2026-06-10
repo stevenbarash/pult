@@ -1,17 +1,99 @@
 import Foundation
 import Observation
 
+public enum PultAppGroup {
+    public static let identifier = "group.app.pult"
+
+    /// The shared suite when the App Group entitlement is present; standard
+    /// defaults otherwise (SwiftPM checks, simulator without entitlements).
+    public static func sharedDefaults() -> UserDefaults {
+        UserDefaults(suiteName: identifier) ?? .standard
+    }
+}
+
+public protocol DeviceStore {
+    func loadDevices() -> [DeviceRecord]
+    func saveDevices(_ devices: [DeviceRecord])
+    func loadSelectedDeviceID() -> UUID?
+    func saveSelectedDeviceID(_ id: UUID?)
+}
+
+public struct UserDefaultsDeviceStore: DeviceStore {
+    private let key: String
+    private let selectionKey: String
+    private let defaults: UserDefaults
+    private let legacyDefaults: UserDefaults
+
+    public init(
+        key: String = "pult.devices",
+        selectionKey: String = "pult.selectedDevice",
+        defaults: UserDefaults = PultAppGroup.sharedDefaults(),
+        legacyDefaults: UserDefaults = .standard
+    ) {
+        self.key = key
+        self.selectionKey = selectionKey
+        self.defaults = defaults
+        self.legacyDefaults = legacyDefaults
+    }
+
+    public func loadDevices() -> [DeviceRecord] {
+        migrateLegacyDevicesIfNeeded()
+        guard let data = defaults.data(forKey: key) else { return [] }
+        return (try? JSONDecoder().decode([DeviceRecord].self, from: data)) ?? []
+    }
+
+    public func saveDevices(_ devices: [DeviceRecord]) {
+        guard let data = try? JSONEncoder().encode(devices) else { return }
+        defaults.set(data, forKey: key)
+    }
+
+    public func loadSelectedDeviceID() -> UUID? {
+        defaults.string(forKey: selectionKey).flatMap(UUID.init(uuidString:))
+    }
+
+    public func saveSelectedDeviceID(_ id: UUID?) {
+        if let id {
+            defaults.set(id.uuidString, forKey: selectionKey)
+        } else {
+            defaults.removeObject(forKey: selectionKey)
+        }
+    }
+
+    /// Devices saved before the App Group move live in standard defaults.
+    /// Copy them into the shared suite the first time it is empty; a marker
+    /// is unnecessary because a populated (or intentionally emptied) suite
+    /// always has data for the key afterwards.
+    private func migrateLegacyDevicesIfNeeded() {
+        guard defaults !== legacyDefaults,
+              defaults.data(forKey: key) == nil,
+              let legacy = legacyDefaults.data(forKey: key) else { return }
+        defaults.set(legacy, forKey: key)
+        if defaults.string(forKey: selectionKey) == nil,
+           let legacySelection = legacyDefaults.string(forKey: selectionKey) {
+            defaults.set(legacySelection, forKey: selectionKey)
+        }
+    }
+}
+
 @MainActor
 @Observable
 public final class DeviceDiscovery {
     public private(set) var devices: [DeviceRecord]
     public private(set) var discoveryState: DiscoveryState = .idle
 
+    public var selectedDeviceID: UUID? {
+        didSet {
+            guard oldValue != selectedDeviceID else { return }
+            store.saveSelectedDeviceID(selectedDeviceID)
+        }
+    }
+
     private let store: DeviceStore
 
     public init(store: DeviceStore = UserDefaultsDeviceStore()) {
         self.store = store
         self.devices = store.loadDevices()
+        self.selectedDeviceID = store.loadSelectedDeviceID()
     }
 
     @discardableResult
@@ -51,29 +133,4 @@ public enum DiscoveryState: Equatable, Sendable {
     case scanning
     case manualOnly
     case failed(String)
-}
-
-public protocol DeviceStore {
-    func loadDevices() -> [DeviceRecord]
-    func saveDevices(_ devices: [DeviceRecord])
-}
-
-public struct UserDefaultsDeviceStore: DeviceStore {
-    private let key: String
-    private let defaults: UserDefaults
-
-    public init(key: String = "pult.devices", defaults: UserDefaults = .standard) {
-        self.key = key
-        self.defaults = defaults
-    }
-
-    public func loadDevices() -> [DeviceRecord] {
-        guard let data = defaults.data(forKey: key) else { return [] }
-        return (try? JSONDecoder().decode([DeviceRecord].self, from: data)) ?? []
-    }
-
-    public func saveDevices(_ devices: [DeviceRecord]) {
-        guard let data = try? JSONEncoder().encode(devices) else { return }
-        defaults.set(data, forKey: key)
-    }
 }
