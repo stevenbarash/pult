@@ -1,5 +1,0 @@
----
-triple:          'arm64-apple-darwin'
-binary-path:     '/Users/nyetwork/Developer/pult/.build/arm64-apple-macosx/debug/PultCoreCheck'
-relocations:     []
-...
