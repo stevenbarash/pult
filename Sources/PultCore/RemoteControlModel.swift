@@ -1,6 +1,11 @@
 import Foundation
 import Observation
 
+public enum HeadlessCommandOutcome: Equatable, Sendable {
+    case sent
+    case failed(String)
+}
+
 @MainActor
 @Observable
 public final class RemoteControlModel {
@@ -42,6 +47,37 @@ public final class RemoteControlModel {
     public func connectSelectedDevice() async {
         guard let selectedDevice else { return }
         await session.connect(to: selectedDevice)
+    }
+
+    /// Sends a key without any UI in the loop — the path used by App Intents
+    /// fired from the Lock Screen, Control Center, and Siri. Reuses a live
+    /// session when possible and redials once when a connection that still
+    /// claims to be connected turns out dead (typical after the app spent
+    /// time suspended in the background).
+    public func performHeadlessCommand(_ key: RemoteKey) async -> HeadlessCommandOutcome {
+        guard let selectedDevice, selectedDevice.isPaired else {
+            return .failed("Open Pult and pair a TV first.")
+        }
+
+        await ensureConnected()
+        if session.connectionState == .connected {
+            await session.press(key)
+            if session.connectionState == .connected {
+                return .sent
+            }
+        }
+
+        // Fresh dial: either the first connect failed outright, or the press
+        // above killed a stale connection.
+        await session.connect(to: selectedDevice)
+        guard session.connectionState == .connected else {
+            return .failed(session.lastError ?? "Could not reach \(selectedDevice.name).")
+        }
+        await session.press(key)
+        guard session.connectionState == .connected else {
+            return .failed(session.lastError ?? "Lost the connection to \(selectedDevice.name).")
+        }
+        return .sent
     }
 
     /// Connects the selected device when needed: a no-op when the session is
