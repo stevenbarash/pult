@@ -154,9 +154,11 @@ New pieces, by layer:
 
 ## Risks / device-only verification
 
-Per AGENTS.md, no protocol or behavior claims without device evidence. These need a
-physical iPhone + Google TV: intent execution while locked, keychain access after
-first unlock, background local-network access, cold-connect latency per press
-(~2 round trips on LAN, expected well under a second), Live Activity update budget.
+Per AGENTS.md, no protocol or behavior claims without a stored validation report
+or explicit user/device evidence. Until that evidence exists for the TV, keep
+these lock-screen areas marked unvalidated: intent execution while locked,
+keychain access after first unlock, background local-network access,
+cold-connect latency per press (~2 round trips on LAN, expected well under a
+second), and Live Activity update budget.
 `make verify`, `swift test`, and `PultCoreCheck` cover everything testable off-device
 (store migration, headless service logic, codec/framing unchanged).

@@ -24,11 +24,20 @@
 	<true/>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_androidtvremote2._tcp</string>
+		<string>_androidtvremote._tcp</string>
+	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Pult connects to Google TV devices on your local network so it can work as a remote control.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
 </dict>
 </plist>

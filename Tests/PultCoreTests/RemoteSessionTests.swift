@@ -38,6 +38,28 @@ func sessionAnswersSetActiveAndPing() async {
     await transport.enqueueIncoming(framer.frame(Data([0x42, 0x02, 0x08, 0x2A])))
     sent = await transport.waitForSent(count: 3)
     #expect(sent.count >= 3 && sent[2] == framer.frame(codec.encodePingResponse(42)))
+    #expect(session.lastReceivedAt != nil)
+    #expect(session.lastSentAt != nil)
+}
+
+@MainActor
+@Test
+func volumeStatusTracksLatestTvUpdate() async {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+    await session.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+    _ = await transport.waitForSent(count: 1)
+
+    await transport.enqueueIncoming(framer.frame(Data([0x92, 0x03, 0x06, 0x30, 0x64, 0x38, 0x19, 0x40, 0x01])))
+    var attempts = 0
+    while session.volumeStatus == nil, attempts < 2000 {
+        attempts += 1
+        try? await Task.sleep(for: .milliseconds(1))
+    }
+
+    #expect(session.volumeStatus == RemoteVolumeStatus(level: 25, maximum: 100, muted: true))
+    #expect(session.volumeStatus?.normalizedLevel == 0.25)
 }
 
 @MainActor
@@ -54,6 +76,81 @@ func pressSendsSingleShortKeyInject() async throws {
     let sent = await transport.waitForSent(count: 2)
     #expect(sent.count >= 2)
     #expect(sent[1] == framer.frame(try codec.encode(.key(.home, .tap))))
+}
+
+@MainActor
+@Test
+func sendKeyActionSendsLongKeyInjectFrames() async throws {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+    await session.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+    _ = await transport.waitForSent(count: 1)
+
+    await session.sendKey(.select, action: .press)
+    await session.sendKey(.select, action: .release)
+
+    let sent = await transport.waitForSent(count: 3)
+    #expect(sent.count >= 3)
+    #expect(sent[1] == framer.frame(try codec.encode(.key(.select, .press))))
+    #expect(sent[2] == framer.frame(try codec.encode(.key(.select, .release))))
+}
+
+@MainActor
+@Test
+func connectedSessionReportsWhenRefreshIsNeeded() async {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    let device = DeviceRecord(name: "TV", host: "192.168.1.10")
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+    await session.connect(to: device)
+
+    #expect(!session.needsConnectionRefresh(for: device, idleTimeout: .infinity))
+    #expect(session.needsConnectionRefresh(for: device, idleTimeout: 0))
+    #expect(session.needsConnectionRefresh(for: DeviceRecord(name: "Other", host: "10.0.0.2"), idleTimeout: .infinity))
+}
+
+@MainActor
+@Test
+func textEntryUsesLatestImeStatus() async throws {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+    await session.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+    _ = await transport.waitForSent(count: 1)
+
+    await transport.enqueueIncoming(framer.frame(remoteImeShowRequestFrame(counter: 9)))
+    var attempts = 0
+    while session.textFieldStatus?.counter != 9, attempts < 2000 {
+        attempts += 1
+        try? await Task.sleep(for: .milliseconds(1))
+    }
+
+    #expect(session.textFieldStatus?.label == "Search")
+    let didSend = await session.sendText("Hi")
+    #expect(didSend)
+
+    let sent = await transport.waitForSent(count: 3)
+    #expect(sent.count >= 3)
+    #expect(sent[1] == framer.frame(try codec.encode(.text(RemoteTextEdit(imeCounter: 1, fieldCounter: 9, insert: 72)))))
+    #expect(sent[2] == framer.frame(try codec.encode(.text(RemoteTextEdit(imeCounter: 2, fieldCounter: 9, insert: 105)))))
+}
+
+@MainActor
+@Test
+func textEntryRequiresFocusedTvField() async {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+    await session.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+    _ = await transport.waitForSent(count: 1)
+
+    let didSend = await session.sendText("Hi")
+
+    #expect(!didSend)
+    #expect(session.lastError == "Open a text field on the TV before typing.")
+    let sent = await transport.sentPayloads()
+    #expect(sent.count == 1)
 }
 
 @MainActor
@@ -131,4 +228,21 @@ func switchingDevicesAbandonsStaleHandshake() async {
     try? await Task.sleep(for: .milliseconds(150))
     #expect(session.connectionState == .connected)
     #expect(session.device?.id == deviceB.id)
+}
+
+private func remoteImeShowRequestFrame(counter: Int) -> Data {
+    var status = ProtobufEncoder()
+    status.appendVarint(field: 1, UInt64(counter))
+    status.appendString(field: 2, "")
+    status.appendVarint(field: 3, 0)
+    status.appendVarint(field: 4, 0)
+    status.appendVarint(field: 5, 0)
+    status.appendString(field: 6, "Search")
+
+    var showRequest = ProtobufEncoder()
+    showRequest.appendMessage(field: 2, status.data)
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 22, showRequest.data)
+    return message.data
 }

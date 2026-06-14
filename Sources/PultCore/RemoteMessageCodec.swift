@@ -2,8 +2,45 @@ import Foundation
 
 public enum RemoteCommand: Equatable, Sendable {
     case key(RemoteKey, KeyAction)
-    case text(String)
+    case text(RemoteTextEdit)
     case appLink(URL)
+}
+
+public struct RemoteTextEdit: Equatable, Sendable {
+    public var imeCounter: Int
+    public var fieldCounter: Int
+    public var insert: UInt32
+
+    public init(imeCounter: Int, fieldCounter: Int, insert: UInt32) {
+        self.imeCounter = imeCounter
+        self.fieldCounter = fieldCounter
+        self.insert = insert
+    }
+}
+
+public struct RemoteTextFieldStatus: Equatable, Sendable {
+    public var counter: Int
+    public var value: String
+    public var selectionStart: Int
+    public var selectionEnd: Int
+    public var unknown5: Int
+    public var label: String
+
+    public init(
+        counter: Int,
+        value: String = "",
+        selectionStart: Int = 0,
+        selectionEnd: Int = 0,
+        unknown5: Int = 0,
+        label: String = ""
+    ) {
+        self.counter = counter
+        self.value = value
+        self.selectionStart = selectionStart
+        self.selectionEnd = selectionEnd
+        self.unknown5 = unknown5
+        self.label = label
+    }
 }
 
 /// Messages the TV sends on the command channel that the client must react to
@@ -15,6 +52,7 @@ public enum IncomingRemoteMessage: Equatable, Sendable {
     case error
     case started(Bool)
     case volume(level: UInt64, maximum: UInt64, muted: Bool)
+    case textFieldStatus(RemoteTextFieldStatus)
     case other
 }
 
@@ -65,6 +103,9 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
         static let pingRequest = 8
         static let pingResponse = 9
         static let keyInject = 10
+        static let imeKeyInject = 20
+        static let imeBatchEdit = 21
+        static let imeShowRequest = 22
         static let start = 40
         static let setVolumeLevel = 50
         static let appLinkLaunchRequest = 90
@@ -84,10 +125,15 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
             var launch = ProtobufEncoder()
             launch.appendString(field: 1, url.absoluteString)
             return message(field: FieldNumber.appLinkLaunchRequest, payload: launch.data)
-        case .text:
-            // v2 text entry needs the IME counter state pushed by the TV;
-            // not implemented yet.
-            throw RemoteMessageCodecError.unsupportedCommand
+        case let .text(edit):
+            var editInfo = ProtobufEncoder()
+            editInfo.appendVarint(field: 2, UInt64(edit.insert))
+
+            var batchEdit = ProtobufEncoder()
+            batchEdit.appendVarint(field: 1, UInt64(edit.imeCounter))
+            batchEdit.appendVarint(field: 2, UInt64(edit.fieldCounter))
+            batchEdit.appendMessage(field: 3, editInfo.data)
+            return message(field: FieldNumber.imeBatchEdit, payload: batchEdit.data)
         }
     }
 
@@ -111,6 +157,11 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
                     maximum: try firstVarint(field: 6, in: field.bytes) ?? 0,
                     muted: try firstVarint(field: 8, in: field.bytes) == 1
                 )
+            case FieldNumber.imeKeyInject, FieldNumber.imeShowRequest:
+                if let status = try textFieldStatus(fromContainer: field.bytes) {
+                    return .textFieldStatus(status)
+                }
+                return .other
             default:
                 continue
             }
@@ -159,5 +210,53 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
             }
         }
         return nil
+    }
+
+    private func textFieldStatus(fromContainer payload: Data) throws -> RemoteTextFieldStatus? {
+        var reader = ProtobufFieldReader(data: payload)
+        while let field = try reader.nextField() {
+            if field.number == 2, field.wireType == .lengthDelimited {
+                return try textFieldStatus(from: field.bytes)
+            }
+        }
+        return nil
+    }
+
+    private func textFieldStatus(from payload: Data) throws -> RemoteTextFieldStatus {
+        var counter = 0
+        var value = ""
+        var selectionStart = 0
+        var selectionEnd = 0
+        var unknown5 = 0
+        var label = ""
+
+        var reader = ProtobufFieldReader(data: payload)
+        while let field = try reader.nextField() {
+            switch field.number {
+            case 1 where field.wireType == .varint:
+                counter = Int(field.varint)
+            case 2 where field.wireType == .lengthDelimited:
+                value = String(decoding: field.bytes, as: UTF8.self)
+            case 3 where field.wireType == .varint:
+                selectionStart = Int(field.varint)
+            case 4 where field.wireType == .varint:
+                selectionEnd = Int(field.varint)
+            case 5 where field.wireType == .varint:
+                unknown5 = Int(field.varint)
+            case 6 where field.wireType == .lengthDelimited:
+                label = String(decoding: field.bytes, as: UTF8.self)
+            default:
+                continue
+            }
+        }
+
+        return RemoteTextFieldStatus(
+            counter: counter,
+            value: value,
+            selectionStart: selectionStart,
+            selectionEnd: selectionEnd,
+            unknown5: unknown5,
+            label: label
+        )
     }
 }

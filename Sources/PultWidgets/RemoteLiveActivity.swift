@@ -14,13 +14,17 @@ struct RemoteLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 6) {
                         Image(systemName: "tv")
+                            .widgetAccentedRenderingMode(.fullColor)
                         Text(context.attributes.deviceName)
                             .font(.caption.weight(.semibold))
                             .lineLimit(1)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    StatusDot(status: context.state.status)
+                    StatusBadge(status: context.state.status, isStale: context.isStale)
+                }
+                DynamicIslandExpandedRegion(.center, priority: 1) {
+                    KeyButton(command: .playPause, size: 34)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     HStack(spacing: 18) {
@@ -34,12 +38,17 @@ struct RemoteLiveActivity: Widget {
                 }
             } compactLeading: {
                 Image(systemName: "tv")
+                    .widgetAccentedRenderingMode(.fullColor)
             } compactTrailing: {
-                StatusDot(status: context.state.status)
+                StatusDot(status: context.state.status, isStale: context.isStale)
             } minimal: {
                 Image(systemName: "tv")
+                    .widgetAccentedRenderingMode(.fullColor)
             }
+            .keylineTint(context.state.status.tint())
+            .contentMargins(.horizontal, 8, for: .expanded)
         }
+        .supplementalActivityFamilies([.small, .medium])
     }
 }
 
@@ -50,17 +59,61 @@ struct RemoteLiveActivity: Widget {
 /// flexible column between them. Width soaks up the device differences —
 /// the device name truncates first on compact phones.
 private struct LockScreenRemoteView: View {
+    @Environment(\.activityFamily) private var activityFamily
+
+    let context: ActivityViewContext<RemoteSessionAttributes>
+
+    var body: some View {
+        switch activityFamily {
+        case .small:
+            SupplementalSmallRemoteView(context: context)
+        case .medium:
+            SupplementalMediumRemoteView(context: context)
+        @unknown default:
+            SupplementalMediumRemoteView(context: context)
+        }
+    }
+}
+
+private struct SupplementalSmallRemoteView: View {
+    let context: ActivityViewContext<RemoteSessionAttributes>
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "tv")
+                    .widgetAccentedRenderingMode(.fullColor)
+                Text(context.attributes.deviceName)
+                    .font(.caption2.weight(.semibold))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                StatusBadge(status: context.state.status, isStale: context.isStale, compact: true)
+            }
+            HStack(spacing: 4) {
+                KeyButton(command: .back, size: 30)
+                KeyButton(command: .playPause, size: 34)
+                KeyButton(command: .home, size: 30)
+                KeyButton(command: .mute, size: 30)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .foregroundStyle(.white)
+    }
+}
+
+private struct SupplementalMediumRemoteView: View {
     let context: ActivityViewContext<RemoteSessionAttributes>
 
     var body: some View {
         HStack(alignment: .center, spacing: 6) {
             DPadCluster()
             VStack(spacing: 10) {
-                HStack(spacing: 4) {
-                    StatusDot(status: context.state.status)
+                VStack(spacing: 4) {
                     Text(context.attributes.deviceName)
-                        .font(.caption2.weight(.semibold))
+                        .font(.caption2.weight(.bold))
                         .lineLimit(1)
+                    StatusBadge(status: context.state.status, isStale: context.isStale)
                 }
                 if let message = context.state.message {
                     Text(message)
@@ -73,14 +126,16 @@ private struct LockScreenRemoteView: View {
                 KeyButton(command: .power, size: 30)
                 Button(intent: EndRemoteSessionIntent()) {
                     Image(systemName: "xmark")
+                        .widgetAccentedRenderingMode(.fullColor)
                         .font(.system(size: 12, weight: .bold))
                         .frame(width: 30, height: 30)
                         .background(.white.opacity(0.12), in: .circle)
-                        .padding(4)
+                        .frame(width: 44, height: 44)
                         .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Hide remote")
+                .accessibilityHint("Disconnects and removes the Lock Screen remote")
             }
             .frame(maxWidth: .infinity)
             Grid(horizontalSpacing: 0, verticalSpacing: 0) {
@@ -140,36 +195,60 @@ private struct KeyButton: View {
     var size: CGFloat = 36
 
     var body: some View {
+        let hitSize = max(size + 8, 44)
+
         Button(intent: SendRemoteKeyIntent(command: command)) {
             Image(systemName: command.systemImage)
+                .widgetAccentedRenderingMode(.fullColor)
                 .font(.system(size: 13, weight: .semibold))
                 .frame(width: size, height: size)
                 .background(.white.opacity(0.12), in: .circle)
-                .padding(4)
+                .frame(width: hitSize, height: hitSize)
                 .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(command.displayTitle))
+        .accessibilityHint("Sends this command to the current TV")
+    }
+}
+
+private struct StatusBadge: View {
+    let status: RemoteSessionAttributes.Status
+    var isStale = false
+    var compact = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            StatusDot(status: status, isStale: isStale)
+            if !compact {
+                Text(status.displayText(isStale: isStale))
+                    .font(.caption2.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+            }
+        }
+        .padding(.horizontal, compact ? 0 : 6)
+        .padding(.vertical, compact ? 0 : 3)
+        .background {
+            if !compact {
+                Capsule().fill(status.tint(isStale: isStale).opacity(0.18))
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(status.accessibilityText(isStale: isStale)))
     }
 }
 
 private struct StatusDot: View {
     let status: RemoteSessionAttributes.Status
+    var isStale = false
 
     private var color: Color {
-        switch status {
-        case .connected: .green
-        case .connecting: .orange
-        case .failed: .red
-        }
+        status.tint(isStale: isStale)
     }
 
     private var label: String {
-        switch status {
-        case .connected: "Connected"
-        case .connecting: "Connecting"
-        case .failed: "Connection failed"
-        }
+        status.accessibilityText(isStale: isStale)
     }
 
     var body: some View {
@@ -177,5 +256,40 @@ private struct StatusDot: View {
             .fill(color)
             .frame(width: 8, height: 8)
             .accessibilityLabel(Text(label))
+    }
+}
+
+private extension RemoteSessionAttributes.Status {
+    func tint(isStale: Bool = false) -> Color {
+        if isStale {
+            return .secondary
+        }
+        switch self {
+        case .connected: return .green
+        case .connecting: return .pultWidgetWarning
+        case .failed: return .red
+        }
+    }
+
+    func displayText(isStale: Bool) -> String {
+        if isStale {
+            return "Update delayed"
+        }
+        switch self {
+        case .connected: return "Connected"
+        case .connecting: return "Connecting"
+        case .failed: return "Needs attention"
+        }
+    }
+
+    func accessibilityText(isStale: Bool) -> String {
+        if isStale {
+            return "Remote update delayed"
+        }
+        switch self {
+        case .connected: return "Connected"
+        case .connecting: return "Connecting"
+        case .failed: return "Connection needs attention"
+        }
     }
 }

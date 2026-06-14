@@ -11,11 +11,22 @@
 
 ## Current Scope Boundaries
 
-- Pairing, mutual TLS with a persistent client identity, and the v2 `RemoteMessage` codec are implemented against the protocol references vendored in `Docs/Protocol/`. They have unit/check coverage but still need validation against a physical Google TV before claiming end-to-end control works.
-- Text entry over the v2 IME channel is not implemented; `RemoteCommand.text` throws `unsupportedCommand`.
-- Manual IP entry is the supported device-discovery path. Bonjour/local-network service discovery is not implemented yet.
+- Pairing, mutual TLS with a persistent client identity, and the v2 `RemoteMessage` codec are implemented against the protocol references vendored in `Docs/Protocol/` and have unit/check coverage. End-to-end physical-TV control is per saved TV: unvalidated until a stored validation report or explicit user/device evidence exists, then documented only as "validated on physical Google TV as of YYYY-MM-DD" for the passed areas.
+- Text entry over the v2 IME channel is implemented from the TV's published IME field status and has unit/check coverage. Keyboard behavior is unvalidated for a TV until the Diagnostics validation report or explicit user/device evidence shows the keyboard area passed.
+- Bonjour/local-network discovery is implemented for Android TV Remote Service Bonjour types with manual IP entry as the required fallback. Discovery and reachability are unvalidated for a TV/network until a physical-device validation report or explicit user/device evidence records the scan/manual-host and reachability result.
 - `Pult Direct` and `Pult Release Direct` schemes exist because iOS beta device runs may crash under Xcode debugger injection.
-- The lock-screen remote (Live Activity, controls, and headless intents) is implemented but not yet validated on a physical device; do not claim locked-screen behavior works end to end.
+- The lock-screen remote (Live Activity, controls, and headless intents) is implemented. Locked/headless behavior is unvalidated for a TV until a physical-device validation report or explicit user/device evidence records those areas as passed.
+
+## Known Physical Validation Evidence
+
+- `Android.local` (`host: Android.local`) is validated on physical Google TV as
+  of 2026-06-11 by explicit user/device evidence. Passed areas: setup,
+  discovery/reachability, pairing, command channel, protocol handshake, d-pad,
+  select, back, home, media controls, volume, mute, power behavior, keyboard
+  text entry, favorite app links, Lock Screen Live Activity, locked command
+  sending, Control Center TV Command, Siri/Shortcuts command, and background
+  reconnect. Keep validation claims scoped to this TV unless another TV has its
+  own stored validation report or explicit user/device evidence.
 
 ## Verification
 
@@ -26,6 +37,7 @@ Use the narrowest check that matches the change:
 - Test changes or full Xcode toolchain available: `swift test`
 - App/core Swift file additions or moves: `make xcode-project-check`
 - Project/scheme/plist edits: `xmllint --noout Pult.xcodeproj/xcshareddata/xcschemes/*.xcscheme` and `plutil -lint Pult.xcodeproj/project.pbxproj Sources/PultApp/Supporting/Info.plist Sources/PultWidgets/Supporting/Info.plist Sources/PultApp/Pult.entitlements Sources/PultWidgets/PultWidgets.entitlements` (see `make metadata-check`)
+- Full installable-app CLI build, including Xcode target membership, widget extension, App Intents metadata, and SDK availability: `make verify-full`. It defaults to `XCODE_DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer`; override that variable if another full Xcode should be used. Command Line Tools alone are not enough.
 
 Prefer `make verify` for the default local agent check. It redirects `HOME` into `.build/home` and uses SwiftPM's `--disable-sandbox` flag because Codex already provides the outer workspace sandbox and this local Command Line Tools install can fail when nested SwiftPM tooling writes outside the workspace.
 It also checks that Swift files in `Sources/PultApp`, `Sources/PultCore`, and `Sources/PultWidgets` are present in the matching Xcode groups and target source build phases.
@@ -44,7 +56,7 @@ It also checks that Swift files in `Sources/PultApp`, `Sources/PultCore`, and `S
 - Keep SwiftUI state local unless a feature needs shared state. Use `@Observable`, `@State`, `@Bindable`, and explicit injection consistently with the existing code.
 - Prefer `.task` / `.task(id:)` for lifecycle-bound async work, and add cancellation or timeout handling for long-running network operations.
 - Keep network protocol code in `PultCore`; keep SwiftUI view code in `PultApp`.
-- Do not add real protocol claims without tests or device evidence.
+- Do not add real protocol claims without tests plus either a stored validation report or explicit user/device evidence. Update docs to say "validated on physical Google TV as of YYYY-MM-DD" only when backed by that evidence, and name only the passed areas.
 - Do not introduce new production dependencies without explaining why they are needed and how they are verified.
 
 ## Review Focus

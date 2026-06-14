@@ -19,6 +19,11 @@ public final class RemoteControlModel {
     private var pairingSession: PairingSession?
     private var headlessTask: Task<HeadlessCommandOutcome, Never>?
 
+    private enum RemoteAction: Equatable, Sendable {
+        case key(RemoteKey, KeyAction)
+        case appLink(URL)
+    }
+
     public init(
         discovery: DeviceDiscovery = DeviceDiscovery(),
         session: RemoteSession = RemoteSession(),
@@ -40,14 +45,54 @@ public final class RemoteControlModel {
         discovery.selectedDeviceID = record.id
     }
 
+    public func addDiscoveredDevice(_ device: DiscoveredDevice) {
+        guard let record = discovery.addDiscoveredDevice(device) else { return }
+        selectedDevice = record
+        discovery.selectedDeviceID = record.id
+    }
+
     public func select(_ device: DeviceRecord) {
         selectedDevice = device
         discovery.selectedDeviceID = device.id
     }
 
+    public func moveDevices(fromOffsets source: IndexSet, toOffset destination: Int) {
+        discovery.moveDevices(fromOffsets: source, toOffset: destination)
+    }
+
+    public func deleteDevices(atOffsets offsets: IndexSet) {
+        let removed = discovery.deleteDevices(atOffsets: offsets)
+        guard removed.contains(where: { $0.id == selectedDevice?.id }) else { return }
+        session.disconnect()
+        selectedDevice = discovery.devices.first(where: { $0.id == discovery.selectedDeviceID })
+            ?? discovery.devices.first
+        discovery.selectedDeviceID = selectedDevice?.id
+    }
+
+    @discardableResult
+    public func recordSuccessfulValidation(from report: ValidationReport) -> PhysicalDeviceValidationRecord? {
+        guard let validation = discovery.recordSuccessfulValidation(from: report) else { return nil }
+        if selectedDevice?.id == validation.deviceID {
+            selectedDevice = discovery.devices.first(where: { $0.id == validation.deviceID }) ?? selectedDevice
+        }
+        return validation
+    }
+
     public func connectSelectedDevice() async {
         guard let selectedDevice else { return }
         await session.connect(to: selectedDevice)
+    }
+
+    public func sendKey(
+        _ key: RemoteKey,
+        action: KeyAction = .tap,
+        staleAfter idleTimeout: TimeInterval = 90
+    ) async -> HeadlessCommandOutcome {
+        await executeRemoteAction(.key(key, action), staleAfter: idleTimeout)
+    }
+
+    public func openAppLink(_ url: URL, staleAfter idleTimeout: TimeInterval = 90) async -> HeadlessCommandOutcome {
+        await executeRemoteAction(.appLink(url), staleAfter: idleTimeout)
     }
 
     /// Sends a key without any UI in the loop — the path used by App Intents
@@ -68,14 +113,25 @@ public final class RemoteControlModel {
     /// that still claims to be connected turns out dead (typical after the app
     /// spent time suspended in the background).
     private func executeHeadlessCommand(_ key: RemoteKey) async -> HeadlessCommandOutcome {
+        await executeRemoteAction(.key(key, .tap), staleAfter: 30)
+    }
+
+    /// Ensures a fresh connection, sends once, then redials and retries once
+    /// when a connected-looking session fails during the send. The retry limit
+    /// prevents Lock Screen / Control Center commands from looping forever
+    /// against a TV that is asleep or on another network.
+    private func executeRemoteAction(
+        _ action: RemoteAction,
+        staleAfter idleTimeout: TimeInterval
+    ) async -> HeadlessCommandOutcome {
         guard let selectedDevice, selectedDevice.isPaired else {
             return .failed("Open Pult and pair a TV first.")
         }
 
-        await ensureConnected()
+        await ensureFreshConnection(staleAfter: idleTimeout)
         if session.connectionState == .connected {
-            await session.press(key)
-            if session.connectionState == .connected {
+            let sent = await send(action)
+            if sent, session.connectionState == .connected {
                 return .sent
             }
         }
@@ -91,8 +147,8 @@ public final class RemoteControlModel {
         guard session.connectionState == .connected else {
             return .failed("Could not reach \(selectedDevice.name).")
         }
-        await session.press(key)
-        guard session.connectionState == .connected else {
+        let sent = await send(action)
+        guard sent, session.connectionState == .connected else {
             return .failed("Lost the connection to \(selectedDevice.name).")
         }
         return .sent
@@ -107,6 +163,16 @@ public final class RemoteControlModel {
             return
         }
         await session.connect(to: selectedDevice)
+    }
+
+    @discardableResult
+    public func ensureFreshConnection(staleAfter idleTimeout: TimeInterval = 90) async -> Bool {
+        guard let selectedDevice, selectedDevice.isPaired else { return false }
+        if !session.needsConnectionRefresh(for: selectedDevice, idleTimeout: idleTimeout) {
+            return true
+        }
+        await session.connect(to: selectedDevice)
+        return session.connectionState == .connected
     }
 
     public func beginPairing() async {
@@ -175,6 +241,15 @@ public final class RemoteControlModel {
             "Could not reach the TV's pairing service. Make sure the TV is on and on the same network."
         default:
             error.localizedDescription
+        }
+    }
+
+    private func send(_ action: RemoteAction) async -> Bool {
+        switch action {
+        case let .key(key, keyAction):
+            await session.sendKey(key, action: keyAction)
+        case let .appLink(url):
+            await session.openAppLink(url)
         }
     }
 }

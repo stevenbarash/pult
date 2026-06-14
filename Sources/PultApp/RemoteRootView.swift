@@ -1,9 +1,15 @@
+import Foundation
 import SwiftUI
 import PultCore
 
 struct RemoteRootView: View {
     @Bindable var model: RemoteControlModel
     @State private var presentedSheet: RemoteSheet?
+    @State private var selectedValidationClaimState: DeviceValidationClaimState = .unvalidated
+    @State private var lastCommandFailure: RemoteCommandFailure?
+    @State private var lastCommandKey: RemoteKey?
+
+    private let validationReportStore = UserDefaultsValidationReportStore()
 
     var body: some View {
         NavigationStack {
@@ -16,6 +22,23 @@ struct RemoteRootView: View {
                 #endif
                 .toolbarTitleMenu { deviceMenu }
                 .toolbar {
+                    #if os(iOS)
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Command", systemImage: "command") {
+                            presentCommandPalette()
+                        }
+                        .keyboardShortcut("k", modifiers: [.command])
+                        .accessibilityHint("Search Pult actions and remote commands.")
+                    }
+                    #else
+                    ToolbarItem(placement: .automatic) {
+                        Button("Command", systemImage: "command") {
+                            presentCommandPalette()
+                        }
+                        .keyboardShortcut("k", modifiers: [.command])
+                        .accessibilityHint("Search Pult actions and remote commands.")
+                    }
+                    #endif
                     if let device = model.selectedDevice {
                         ToolbarItem(placement: .primaryAction) {
                             ConnectionStatusControl(
@@ -30,11 +53,18 @@ struct RemoteRootView: View {
         }
         .preferredColorScheme(.dark)
         .task(id: model.selectedDevice?.id) {
+            loadSelectedValidationState()
+            lastCommandFailure = nil
+            lastCommandKey = nil
             await autoConnectIfNeeded()
+        }
+        .task(id: model.discovery.devices) {
+            await RemoteIntentIndex.refreshDevices(model.discovery.devices)
         }
         .sheet(item: $presentedSheet, onDismiss: {
             // Pairing marks the device as paired; pick up the connection
             // without requiring a manual connect tap.
+            loadSelectedValidationState()
             Task { await autoConnectIfNeeded() }
         }, content: sheetContent)
     }
@@ -42,22 +72,22 @@ struct RemoteRootView: View {
     @ViewBuilder
     private var content: some View {
         if model.discovery.devices.isEmpty {
-            ContentUnavailableView {
-                Label("No TV Added", systemImage: "tv.slash")
-            } description: {
-                Text("Add your Google TV's IP address to start controlling it from this phone.")
-            } actions: {
-                Button("Add TV", systemImage: "plus", action: presentAddDevice)
-                    .buttonStyle(.glassProminent)
-            }
+            PultWelcomeEmptyState(onAddTV: presentAddDevice)
         } else {
             RemoteControlSurface(
+                device: model.selectedDevice,
                 connectionState: model.session.connectionState,
                 isPaired: model.selectedDevice?.isPaired ?? false,
+                validationClaimState: selectedValidationClaimState,
+                commandFailure: lastCommandFailure,
                 send: send,
+                sendKeyAction: send,
                 onTextEntry: presentTextEntry,
+                onFavoriteApps: presentFavoriteApps,
+                onRetryCommand: retryLastCommand,
                 onRetryConnect: connectSelectedDevice,
-                onPair: presentPairing
+                onPair: presentPairing,
+                onManualIP: presentAddDevice
             )
         }
     }
@@ -71,7 +101,12 @@ struct RemoteRootView: View {
             }
         }
         if model.selectedDevice != nil {
+            Button("Favorite Apps…", systemImage: "square.grid.2x2", action: presentFavoriteApps)
+            Button("Diagnostics…", systemImage: "stethoscope", action: presentDiagnostics)
             Button("Pair Again…", systemImage: "link", action: presentPairing)
+        }
+        if !model.discovery.devices.isEmpty {
+            Button("Manage TVs…", systemImage: "list.bullet", action: presentManageDevices)
         }
         Button("Add TV…", systemImage: "plus", action: presentAddDevice)
     }
@@ -91,6 +126,10 @@ struct RemoteRootView: View {
         case addDevice
         case textEntry
         case pairing
+        case manageDevices
+        case favoriteApps
+        case diagnostics
+        case commandPalette
 
         var id: Self { self }
     }
@@ -100,17 +139,38 @@ struct RemoteRootView: View {
         switch sheet {
         case .addDevice:
             AddDeviceView(model: model)
-                .presentationDetents([.medium])
+                .presentationSizing(.form)
         case .textEntry:
-            TextEntryView(onSubmit: sendText)
-                .presentationDetents([.medium])
+            TextEntryView(model: model)
+                .presentationSizing(.form)
         case .pairing:
-            PairingView(model: model)
-                .presentationDetents([.medium, .large])
+            PairingView(model: model, onManualIP: presentAddDevice)
+                .presentationSizing(.page)
+        case .manageDevices:
+            ManageDevicesView(model: model)
+                .presentationSizing(.form)
+        case .favoriteApps:
+            FavoriteAppLauncherView(model: model)
+                .presentationSizing(.page)
+        case .diagnostics:
+            DiagnosticsAndValidationView(model: model)
+                .presentationSizing(.page)
+        case .commandPalette:
+            CommandPaletteView(
+                device: model.selectedDevice,
+                connectionState: model.session.connectionState,
+                onCommand: runPaletteCommand
+            )
+            .presentationSizing(.page)
         }
     }
 
+    private func presentCommandPalette() {
+        presentedSheet = .commandPalette
+    }
+
     private func presentAddDevice() {
+        lastCommandFailure = nil
         presentedSheet = .addDevice
     }
 
@@ -119,24 +179,91 @@ struct RemoteRootView: View {
     }
 
     private func presentPairing() {
+        lastCommandFailure = nil
         presentedSheet = .pairing
     }
 
+    private func presentManageDevices() {
+        presentedSheet = .manageDevices
+    }
+
+    private func presentFavoriteApps() {
+        presentedSheet = .favoriteApps
+    }
+
+    private func presentDiagnostics() {
+        presentedSheet = .diagnostics
+    }
+
+    private func runPaletteCommand(_ command: RemoteQuickCommand) {
+        presentedSheet = nil
+        switch command.action {
+        case let .key(key):
+            send(key)
+        case .addDevice:
+            presentSheetAfterDismiss(.addDevice)
+        case .textEntry:
+            presentSheetAfterDismiss(.textEntry)
+        case .pairing:
+            presentSheetAfterDismiss(.pairing)
+        case .manageDevices:
+            presentSheetAfterDismiss(.manageDevices)
+        case .favoriteApps:
+            presentSheetAfterDismiss(.favoriteApps)
+        case .diagnostics:
+            presentSheetAfterDismiss(.diagnostics)
+        case .connect:
+            connectSelectedDevice()
+        }
+    }
+
+    private func presentSheetAfterDismiss(_ sheet: RemoteSheet) {
+        Task { @MainActor in
+            await Task.yield()
+            presentedSheet = sheet
+        }
+    }
+
     private func connectSelectedDevice() {
+        lastCommandFailure = nil
         Task { await autoConnectIfNeeded() }
     }
 
     private func send(_ key: RemoteKey) {
-        Task { await model.session.press(key) }
+        send(key, action: .tap)
     }
 
-    private func sendText(_ text: String) {
-        Task { await model.session.sendText(text) }
+    private func send(_ key: RemoteKey, action: KeyAction) {
+        lastCommandKey = key
+        Task { @MainActor in
+            let outcome = await model.sendKey(key, action: action)
+            switch outcome {
+            case .sent:
+                if lastCommandKey == key {
+                    lastCommandFailure = nil
+                }
+            case let .failed(message):
+                lastCommandFailure = RemoteCommandFailure(message: message)
+            }
+        }
+    }
+
+    private func retryLastCommand() {
+        guard let lastCommandKey else {
+            connectSelectedDevice()
+            return
+        }
+        send(lastCommandKey)
+    }
+
+    private func loadSelectedValidationState() {
+        selectedValidationClaimState = validationReportStore.validationClaimState(for: model.selectedDevice?.id)
     }
 
     @MainActor
     private func autoConnectIfNeeded() async {
         await model.ensureConnected()
+        await RemoteIntentIndex.donateSelectedDeviceShortcuts(for: model.selectedDevice)
         #if canImport(ActivityKit) && os(iOS)
         if let device = model.selectedDevice {
             await RemoteActivityController.shared.endActivities(notMatching: device.id)
@@ -145,68 +272,5 @@ struct RemoteRootView: View {
             await RemoteActivityController.shared.startOrUpdate(for: device, state: .connected)
         }
         #endif
-    }
-}
-
-/// Toolbar capsule showing connection state. For an unpaired TV it offers
-/// pairing (connecting would be rejected); otherwise tapping it (re)connects
-/// when the session is offline, and it is inert while connecting or connected.
-private struct ConnectionStatusControl: View {
-    let state: ConnectionState
-    let isPaired: Bool
-    let onConnect: () -> Void
-    let onPair: () -> Void
-
-    private var label: String {
-        if !isPaired {
-            return state == .connecting ? "Connecting" : "Pair"
-        }
-        switch state {
-        case .disconnected: return "Connect"
-        case .connecting: return "Connecting"
-        case .connected: return "Online"
-        case .failed: return "Retry"
-        }
-    }
-
-    private var color: Color {
-        if !isPaired, state != .connecting {
-            return .orange
-        }
-        switch state {
-        case .connected: return .green
-        case .connecting: return .orange
-        case .failed: return .red
-        case .disconnected: return .secondary
-        }
-    }
-
-    private var isActionable: Bool {
-        switch state {
-        case .disconnected, .failed: true
-        case .connecting, .connected: false
-        }
-    }
-
-    var body: some View {
-        Button(action: isPaired ? onConnect : onPair) {
-            HStack(spacing: 6) {
-                if state == .connecting {
-                    ProgressView()
-                        .controlSize(.mini)
-                } else {
-                    Circle()
-                        .fill(color)
-                        .frame(width: 8, height: 8)
-                }
-                Text(label)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(color)
-            }
-            .padding(.horizontal, 4)
-        }
-        .disabled(!isActionable)
-        .animation(.smooth(duration: 0.3), value: state)
-        .accessibilityLabel(isPaired ? "Connection: \(label)" : "Pair with TV")
     }
 }

@@ -123,6 +123,9 @@ public final class KeychainClientIdentityStore: ClientIdentityProviding, @unchec
         switch status {
         case errSecSuccess:
             guard let item else { return nil }
+            guard CFGetTypeID(item) == SecIdentityGetTypeID() else {
+                throw ClientIdentityError.identityUnavailable
+            }
             return (item as! SecIdentity)
         case errSecItemNotFound:
             return nil

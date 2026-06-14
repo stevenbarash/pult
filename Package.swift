@@ -6,8 +6,8 @@ let package = Package(
     name: "Pult",
     defaultLocalization: "en",
     platforms: [
-        .iOS(.v26),
-        .macOS(.v26)
+        .iOS("27.0"),
+        .macOS("27.0")
     ],
     products: [
         .executable(name: "PultApp", targets: ["PultApp"]),
@@ -23,7 +23,12 @@ let package = Package(
             name: "PultApp",
             dependencies: ["PultCore"],
             path: "Sources/PultApp",
-            exclude: ["Supporting/Info.plist"]
+            exclude: [
+                "Assets.xcassets",
+                "Pult.entitlements",
+                "Supporting/AppIcon60x60@3x.png",
+                "Supporting/Info.plist"
+            ]
         ),
         .executableTarget(
             name: "PultCoreCheck",

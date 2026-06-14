@@ -1,4 +1,9 @@
 SWIFT_ENV = HOME=$(CURDIR)/.build/home
+XCODE_DEVELOPER_DIR ?= /Applications/Xcode-beta.app/Contents/Developer
+XCODEBUILD_ENV = DEVELOPER_DIR=$(XCODE_DEVELOPER_DIR)
+XCODE_DERIVED_DATA ?= $(CURDIR)/.build/XcodeDerivedData
+XCODE_SIM_DESTINATION ?= generic/platform=iOS Simulator
+XCODE_DEVICE_DESTINATION ?= generic/platform=iOS
 XCODE_PROJECT = Pult.xcodeproj/project.pbxproj
 PULT_APP_GROUP = 010000000000000000000604
 PULT_CORE_GROUP = 010000000000000000000605
@@ -7,7 +12,7 @@ PULT_CORE_SOURCES = 010000000000000000000522
 PULT_WIDGETS_GROUP = 010000000000000000000606
 PULT_WIDGETS_SOURCES = 010000000000000000000523
 
-.PHONY: build core-check metadata-check test verify xcode-project-check
+.PHONY: build core-check metadata-check test verify verify-full xcode-build-device xcode-build-simulator xcode-env-check xcode-project-check
 
 build:
 	$(SWIFT_ENV) swift build --disable-sandbox
@@ -83,4 +88,22 @@ xcode-project-check:
 test:
 	$(SWIFT_ENV) swift test --disable-sandbox
 
-verify: build core-check metadata-check xcode-project-check
+xcode-env-check:
+	@test -x "$(XCODE_DEVELOPER_DIR)/usr/bin/xcodebuild" || (echo "Set XCODE_DEVELOPER_DIR to a full Xcode developer directory."; exit 1)
+	$(XCODEBUILD_ENV) xcodebuild -version
+	@$(XCODEBUILD_ENV) xcodebuild -showsdks | grep -q "iphoneos" || (echo "Full Xcode with iOS SDKs is required; Command Line Tools are not enough."; exit 1)
+
+xcode-build-simulator: xcode-env-check metadata-check xcode-project-check
+	$(XCODEBUILD_ENV) xcodebuild -project Pult.xcodeproj -scheme Pult -destination "$(XCODE_SIM_DESTINATION)" -derivedDataPath "$(XCODE_DERIVED_DATA)" CODE_SIGNING_ALLOWED=NO build
+
+xcode-build-device: xcode-env-check metadata-check xcode-project-check
+	$(XCODEBUILD_ENV) xcodebuild -project Pult.xcodeproj -scheme "Pult Release Direct" -configuration Release -destination "$(XCODE_DEVICE_DESTINATION)" -derivedDataPath "$(XCODE_DERIVED_DATA)" build
+
+verify:
+	$(SWIFT_ENV) swift run --disable-sandbox PultCoreCheck
+	$(SWIFT_ENV) swift build --disable-sandbox
+	xmllint --noout Pult.xcodeproj/xcshareddata/xcschemes/*.xcscheme
+	plutil -lint $(XCODE_PROJECT) Sources/PultApp/Supporting/Info.plist Pult.xcodeproj/xcuserdata/nyetwork.xcuserdatad/xcschemes/xcschememanagement.plist Sources/PultWidgets/Supporting/Info.plist Sources/PultApp/Pult.entitlements Sources/PultWidgets/PultWidgets.entitlements
+	$(MAKE) xcode-project-check
+
+verify-full: verify xcode-build-simulator

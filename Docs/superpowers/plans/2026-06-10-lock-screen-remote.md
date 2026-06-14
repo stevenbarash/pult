@@ -14,7 +14,7 @@
 - `make build` / `make test` compile `PultApp` and `PultCore` for **macOS** via SwiftPM. Anything in those directories must keep compiling on macOS: guard ActivityKit code with `#if canImport(ActivityKit)` and use the `HeadlessRemoteIntent` typealias for `LiveActivityIntent`.
 - `Sources/PultWidgets/` is **Xcode-only** (not in `Package.swift`); it cannot be compiled in a Command Line Tools-only environment. Its correctness gates are `make metadata-check`, `make xcode-project-check`, and a device build in Xcode.
 - `swift test` may fail with `no such module 'Testing'` under CLT-only toolchains. If so, run `make verify` and treat the missing test runner as a toolchain issue per AGENTS.md — but still write the tests; they run under full Xcode.
-- Per AGENTS.md, do not claim end-to-end lock-screen behavior works without device evidence. The final section lists the device checklist.
+- Per AGENTS.md, do not claim end-to-end lock-screen behavior works without a stored validation report or explicit user/device evidence. The final section lists the device checklist.
 
 ---
 
@@ -1808,7 +1808,7 @@ git commit -m "feat: PultWidgets extension target, App Group entitlements, check
 
 ### Task 7: Xcode device build + lock-screen verification (manual, with the user)
 
-No code. This validates the claims we are not allowed to make without device evidence. Requires Xcode 26+, a physical iPhone on iOS 26, and the paired Google TV on the same network.
+No code. This collects the evidence needed before changing docs from unvalidated to "validated on physical Google TV as of YYYY-MM-DD" for any passed lock-screen areas. Requires Xcode 26+, a physical iPhone on iOS 26, and the paired Google TV on the same network.
 
 - [ ] **Step 1: Build & run** — open `Pult.xcodeproj`, scheme `Pult Release Direct`, set signing team if needed (the App Group `group.app.pult` must be registered for both bundle IDs in the developer account), run on the iPhone. Clean build folder + delete the stale app first (bundle/entitlements changed).
 - [ ] **Step 2: Migration** — existing device records and pairing survive the update (App Group + keychain migration worked). Pair fresh if this is a new install.
@@ -1817,7 +1817,7 @@ No code. This validates the claims we are not allowed to make without device evi
 - [ ] **Step 5: Controls** — add "TV Remote" to a lock-screen slot via lock-screen customization; press it while locked → Live Activity appears and connects. Add "TV Command" to Control Center and configure it to Mute; verify. Verify the Action button mapping if the device has one.
 - [ ] **Step 6: Siri** — "Show my TV remote with Pult" and "Play or Pause the TV with Pult" from the locked phone.
 - [ ] **Step 7: Failure UX** — unplug the TV's network, press a button while locked: status dot turns red and the message line shows the error; no unlock prompt, no crash. Reconnect and confirm recovery on next press.
-- [ ] **Step 8: Record evidence** — note results per item in `Docs/` (or the README's verification section) before claiming the feature works, per AGENTS.md.
+- [ ] **Step 8: Record evidence** — re-run Diagnostics validation for the selected TV, then note the date, device name, host, and passed areas in `Docs/PhysicalDeviceValidationChecklist.md` or the README before claiming the feature works, per AGENTS.md.
 
 ---
 

@@ -14,6 +14,14 @@ final class MemoryDeviceStore: DeviceStore {
     func saveSelectedDeviceID(_ id: UUID?) { selectedID = id }
 }
 
+struct StaticReachabilityProbe: DeviceReachabilityProbing {
+    var result: DeviceReachability
+
+    func probe(host: String, port: UInt16, timeout: Duration) async -> DeviceReachability {
+        result
+    }
+}
+
 /// Scripted transport: incoming frames are enqueued by tests, sent frames are
 /// recorded for assertions.
 actor MockTransport: RemoteTransport {

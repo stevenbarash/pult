@@ -8,6 +8,28 @@ public enum ConnectionState: Equatable, Sendable {
     case failed(String)
 }
 
+public struct RemoteVolumeStatus: Equatable, Sendable {
+    public var level: UInt64
+    public var maximum: UInt64
+    public var muted: Bool
+
+    public init(level: UInt64, maximum: UInt64, muted: Bool) {
+        self.level = level
+        self.maximum = maximum
+        self.muted = muted
+    }
+
+    public var normalizedLevel: Double {
+        guard maximum > 0 else { return 0 }
+        return min(max(Double(level) / Double(maximum), 0), 1)
+    }
+}
+
+public enum RemoteCommandSendResult: Equatable, Sendable {
+    case sent
+    case failed(String)
+}
+
 @MainActor
 @Observable
 public final class RemoteSession {
@@ -15,6 +37,14 @@ public final class RemoteSession {
     public private(set) var lastError: String?
     /// The device this session is connected or connecting to.
     public private(set) var device: DeviceRecord?
+    /// Latest focused text field state published by the TV's IME channel.
+    public private(set) var textFieldStatus: RemoteTextFieldStatus?
+    /// Latest volume state published by the TV, when the device reports it.
+    public private(set) var volumeStatus: RemoteVolumeStatus?
+    /// Last time a framed protocol message arrived from the TV.
+    public private(set) var lastReceivedAt: Date?
+    /// Last time a framed protocol message was sent to the TV.
+    public private(set) var lastSentAt: Date?
 
     private let transport: RemoteTransport
     private let codec: RemoteMessageCodec
@@ -23,6 +53,7 @@ public final class RemoteSession {
     private var readTask: Task<Void, Never>?
     private var connectTask: Task<Void, Never>?
     private var connectAttempt = 0
+    private var nextImeCounter = 0
 
     public init(
         transport: RemoteTransport = NetworkRemoteTransport(),
@@ -49,6 +80,11 @@ public final class RemoteSession {
         self.device = device
         connectionState = .connecting
         lastError = nil
+        textFieldStatus = nil
+        volumeStatus = nil
+        lastReceivedAt = nil
+        lastSentAt = nil
+        nextImeCounter = 0
 
         // The handshake runs in its own task so cancellation of the caller
         // (a re-fired SwiftUI .task, for example) cannot abandon it midway.
@@ -80,22 +116,76 @@ public final class RemoteSession {
         readTask?.cancel()
         readTask = nil
         connectionState = .disconnected
+        textFieldStatus = nil
+        volumeStatus = nil
+        nextImeCounter = 0
         Task {
             await transport.close()
         }
     }
 
-    public func press(_ key: RemoteKey) async {
-        await sendIgnoringErrors(.key(key, .tap))
+    public func needsConnectionRefresh(
+        for device: DeviceRecord,
+        idleTimeout: TimeInterval = 90,
+        now: Date = .now
+    ) -> Bool {
+        guard connectionState == .connected, self.device?.id == device.id else {
+            return true
+        }
+        guard idleTimeout.isFinite else {
+            return false
+        }
+        guard let lastReceivedAt else {
+            return true
+        }
+        return now.timeIntervalSince(lastReceivedAt) >= idleTimeout
     }
 
-    public func sendText(_ text: String) async {
-        guard !text.isEmpty else { return }
-        await sendIgnoringErrors(.text(text))
+    @discardableResult
+    public func press(_ key: RemoteKey) async -> Bool {
+        await sendKey(key, action: .tap)
     }
 
-    public func openAppLink(_ url: URL) async {
-        await sendIgnoringErrors(.appLink(url))
+    @discardableResult
+    public func sendKey(_ key: RemoteKey, action: KeyAction) async -> Bool {
+        await sendIgnoringErrors(.key(key, action)) == .sent
+    }
+
+    @discardableResult
+    public func sendText(_ text: String) async -> Bool {
+        guard !text.isEmpty else { return true }
+        guard connectionState == .connected else {
+            lastError = "Connect to the TV before typing."
+            return false
+        }
+        guard let textFieldStatus else {
+            lastError = "Open a text field on the TV before typing."
+            return false
+        }
+
+        for scalar in text.unicodeScalars {
+            nextImeCounter += 1
+            let edit = RemoteTextEdit(
+                imeCounter: nextImeCounter,
+                fieldCounter: textFieldStatus.counter,
+                insert: scalar.value
+            )
+
+            do {
+                try await send(codec.encode(.text(edit)))
+            } catch {
+                fail(with: describe(error))
+                return false
+            }
+        }
+
+        lastError = nil
+        return true
+    }
+
+    @discardableResult
+    public func openAppLink(_ url: URL) async -> Bool {
+        await sendIgnoringErrors(.appLink(url)) == .sent
     }
 
     private func startReadLoop(attempt: Int) {
@@ -125,6 +215,7 @@ public final class RemoteSession {
     }
 
     private func handle(_ frame: Data, attempt: Int) async throws {
+        lastReceivedAt = .now
         switch try codec.decode(frame) {
         case .configure:
             try await send(codec.encodeConfigureResponse())
@@ -137,8 +228,15 @@ public final class RemoteSession {
             try await send(codec.encodePingResponse(value))
         case .error:
             lastError = "The TV reported a remote error"
-        case .started, .volume, .other:
+        case .started, .other:
             break
+        case let .volume(level, maximum, muted):
+            volumeStatus = RemoteVolumeStatus(level: level, maximum: maximum, muted: muted)
+        case let .textFieldStatus(status):
+            if textFieldStatus?.counter != status.counter {
+                nextImeCounter = 0
+            }
+            textFieldStatus = status
         }
     }
 
@@ -156,18 +254,24 @@ public final class RemoteSession {
         }
     }
 
-    private func sendIgnoringErrors(_ command: RemoteCommand) async {
+    private func sendIgnoringErrors(_ command: RemoteCommand) async -> RemoteCommandSendResult {
         do {
             try await send(codec.encode(command))
+            lastError = nil
+            return .sent
         } catch RemoteMessageCodecError.unsupportedCommand {
             lastError = "This command isn't supported yet"
+            return .failed(lastError ?? "Unsupported command")
         } catch {
-            fail(with: describe(error))
+            let message = describe(error)
+            fail(with: message)
+            return .failed(message)
         }
     }
 
     private func send(_ payload: Data) async throws {
         try await transport.send(framer.frame(payload))
+        lastSentAt = .now
     }
 
     private func fail(with message: String, attempt: Int? = nil) {

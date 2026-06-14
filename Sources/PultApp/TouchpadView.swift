@@ -11,10 +11,15 @@ struct TouchpadView: View {
     @State private var gestureCount = 0
     @AppStorage("touchpadGestureCount") private var lifetimeGestureCount = 0
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     private let swipeThreshold: CGFloat = 24
 
     var body: some View {
         ZStack {
+            touchpadTexture
             edgeHints
             tapPulse
             swipeFlash
@@ -25,12 +30,14 @@ struct TouchpadView: View {
         .gesture(touchGesture)
         .accessibilityElement()
         .accessibilityLabel("Touchpad")
-        .accessibilityHint("Swipe to move, tap to select")
+        .accessibilityValue(feedback.map { "Last command: \($0.key.accessibilityLabel)" } ?? "Ready")
+        .accessibilityHint("Swipe to move and tap to select. VoiceOver users can choose remote commands from Actions.")
+        .accessibilityInputLabels(["Touchpad", "Remote touchpad", "TV touchpad"])
         .accessibilityActions {
-            Button("Up") { send(.up) }
-            Button("Down") { send(.down) }
-            Button("Left") { send(.left) }
-            Button("Right") { send(.right) }
+            Button("Move Up") { send(.up) }
+            Button("Move Down") { send(.down) }
+            Button("Move Left") { send(.left) }
+            Button("Move Right") { send(.right) }
             Button("Select") { send(.select) }
         }
     }
@@ -55,20 +62,26 @@ struct TouchpadView: View {
     private func recognize(_ key: RemoteKey, tapLocation: CGPoint?) {
         send(key)
         gestureCount += 1
-        if lifetimeGestureCount < 100 {
+        if lifetimeGestureCount < 5 {
             lifetimeGestureCount += 1
         }
 
         let event = TouchFeedback(id: gestureCount, key: key, location: tapLocation)
-        withAnimation(.snappy(duration: 0.12)) {
-            feedback = event
-        }
+        updateFeedback(event, animation: .snappy(duration: 0.12))
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(380))
             if feedback?.id == event.id {
-                withAnimation(.smooth(duration: 0.3)) {
-                    feedback = nil
-                }
+                updateFeedback(nil, animation: .smooth(duration: 0.3))
+            }
+        }
+    }
+
+    private func updateFeedback(_ newFeedback: TouchFeedback?, animation: Animation?) {
+        if reduceMotion {
+            feedback = newFeedback
+        } else {
+            withAnimation(animation) {
+                feedback = newFeedback
             }
         }
     }
@@ -79,7 +92,7 @@ struct TouchpadView: View {
     private var tapPulse: some View {
         if let feedback, feedback.key == .select, let location = feedback.location {
             Circle()
-                .fill(.white.opacity(0.22))
+                .fill(PultDesign.accent.opacity(colorSchemeContrast == .increased ? 0.42 : 0.26))
                 .frame(width: 56, height: 56)
                 .position(location)
                 .transition(.scale(scale: 0.4).combined(with: .opacity))
@@ -91,18 +104,42 @@ struct TouchpadView: View {
         if let feedback, let alignment = feedback.key.edgeAlignment {
             Image(systemName: feedback.key.chevronName)
                 .font(.system(size: 26, weight: .bold))
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(PultDesign.accent.opacity(colorSchemeContrast == .increased ? 0.96 : 0.78))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment)
                 .padding(22)
                 .transition(.opacity.combined(with: .scale(scale: 0.7)))
         }
     }
 
+    private var touchpadTexture: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            PultDesign.surfaceRaised,
+                            PultDesign.surface.opacity(0.34),
+                            Color.black.opacity(0.08)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius - 8, style: .continuous)
+                .stroke(PultDesign.accent.opacity(0.10), lineWidth: 1)
+                .padding(18)
+            RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius - 14, style: .continuous)
+                .stroke(PultDesign.hairline, lineWidth: 1)
+                .padding(36)
+        }
+        .accessibilityHidden(true)
+    }
+
     private var edgeHints: some View {
         ForEach(TouchpadEdge.allCases, id: \.self) { edge in
             Image(systemName: edge.chevronName)
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.14))
+                .foregroundStyle(PultDesign.accent.opacity(edgeHintOpacity))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: edge.alignment)
                 .padding(18)
         }
@@ -112,13 +149,21 @@ struct TouchpadView: View {
     private var hintLabel: some View {
         if lifetimeGestureCount < 5 {
             Text("Swipe to move · Tap to select")
-                .font(.caption)
+                .font(PultTypography.caption)
                 .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 48)
+                .padding(.horizontal, 24)
+                .padding(.bottom, dynamicTypeSize.isAccessibilitySize ? 30 : 48)
                 .transition(.opacity)
                 .animation(.smooth, value: lifetimeGestureCount)
         }
+    }
+
+    private var edgeHintOpacity: Double {
+        colorSchemeContrast == .increased ? 0.36 : 0.14
     }
 }
 

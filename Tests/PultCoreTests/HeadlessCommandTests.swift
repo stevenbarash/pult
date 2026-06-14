@@ -34,6 +34,23 @@ func headlessCommandConnectsAndSendsKey() async throws {
 
 @MainActor
 @Test
+func sendKeyPreservesLongPressAction() async throws {
+    let transport = MockTransport()
+    let device = DeviceRecord(name: "TV", host: "192.168.1.10", isPaired: true)
+    let model = makeModel(transport: transport, device: device)
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+
+    #expect(await model.sendKey(.select, action: .press) == .sent)
+    #expect(await model.sendKey(.select, action: .release) == .sent)
+
+    let sent = await transport.waitForSent(count: 3)
+    #expect(sent.count >= 3)
+    #expect(sent[1] == framer.frame(try codec.encode(.key(.select, .press))))
+    #expect(sent[2] == framer.frame(try codec.encode(.key(.select, .release))))
+}
+
+@MainActor
+@Test
 func headlessCommandFailsWithoutPairedSelection() async {
     let transport = MockTransport()
     let device = DeviceRecord(name: "TV", host: "192.168.1.10", isPaired: false)
@@ -87,6 +104,29 @@ func headlessCommandRedialsWhenStaleConnectionDies() async throws {
     #expect(dialCount == 2)
     let keyPayloads = await transport.keyPayloads()
     #expect(keyPayloads.last == framer.frame(try codec.encode(.key(.volumeUp, .tap))))
+}
+
+@MainActor
+@Test
+func appLinkCommandUsesSameReconnectPath() async throws {
+    let transport = StaleAfterConfigureTransport(
+        configureFrame: framer.frame(tvConfigureFrame),
+        configureResponse: framer.frame(codec.encodeConfigureResponse())
+    )
+    let device = DeviceRecord(name: "TV", host: "192.168.1.10", isPaired: true)
+    let model = makeModel(transport: transport, device: device)
+    let url = URL(string: "https://www.youtube.com/tv")!
+
+    #expect(await model.openAppLink(url) == .sent)
+    await transport.killNextKeySend()
+
+    let outcome = await model.openAppLink(url)
+
+    #expect(outcome == .sent)
+    let dialCount = await transport.connectCount
+    #expect(dialCount == 2)
+    let payloads = await transport.keyPayloads()
+    #expect(payloads.last == framer.frame(try codec.encode(.appLink(url))))
 }
 
 private actor UnreachableTransport: RemoteTransport {

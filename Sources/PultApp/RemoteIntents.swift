@@ -1,7 +1,9 @@
 import AppIntents
+import CoreSpotlight
 import Foundation
 import OSLog
 import PultCore
+import UniformTypeIdentifiers
 #if canImport(ActivityKit) && os(iOS)
 import ActivityKit
 #endif
@@ -27,17 +29,34 @@ enum SharedRemote {
 
 enum RemoteKeyOption: String, AppEnum {
     case up, down, left, right, select
-    case back, home, power
+    case back, home, voiceSearch
+    case search
+    case power
     case volumeUp, volumeDown, mute
     case playPause, rewind, fastForward
 
-    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Remote Command")
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(
+        name: "Remote Command",
+        synonyms: ["TV command", "remote button", "remote key"]
+    )
 
     static let caseDisplayRepresentations: [RemoteKeyOption: DisplayRepresentation] = [
-        .up: "Up", .down: "Down", .left: "Left", .right: "Right", .select: "Select",
-        .back: "Back", .home: "Home", .power: "Power",
-        .volumeUp: "Volume Up", .volumeDown: "Volume Down", .mute: "Mute",
-        .playPause: "Play or Pause", .rewind: "Rewind", .fastForward: "Fast Forward"
+        .up: DisplayRepresentation(title: "Up", synonyms: ["D-pad up", "Move up"]),
+        .down: DisplayRepresentation(title: "Down", synonyms: ["D-pad down", "Move down"]),
+        .left: DisplayRepresentation(title: "Left", synonyms: ["D-pad left", "Move left"]),
+        .right: DisplayRepresentation(title: "Right", synonyms: ["D-pad right", "Move right"]),
+        .select: DisplayRepresentation(title: "Select", synonyms: ["OK", "Enter", "Choose"]),
+        .back: DisplayRepresentation(title: "Back", synonyms: ["Return", "Previous"]),
+        .home: DisplayRepresentation(title: "Home", synonyms: ["Home screen"]),
+        .voiceSearch: DisplayRepresentation(title: "Voice Search", synonyms: ["Google Assistant", "Microphone", "Search by voice"]),
+        .search: DisplayRepresentation(title: "Search", synonyms: ["Text search", "Find"]),
+        .power: DisplayRepresentation(title: "Power", synonyms: ["Turn TV on", "Turn TV off"]),
+        .volumeUp: DisplayRepresentation(title: "Volume Up", synonyms: ["Louder", "Raise volume"]),
+        .volumeDown: DisplayRepresentation(title: "Volume Down", synonyms: ["Quieter", "Lower volume"]),
+        .mute: DisplayRepresentation(title: "Mute", synonyms: ["Mute sound", "Silence TV"]),
+        .playPause: DisplayRepresentation(title: "Play or Pause", synonyms: ["Play", "Pause"]),
+        .rewind: DisplayRepresentation(title: "Rewind", synonyms: ["Skip back"]),
+        .fastForward: DisplayRepresentation(title: "Fast Forward", synonyms: ["Skip forward"])
     ]
 
     var remoteKey: RemoteKey {
@@ -49,6 +68,8 @@ enum RemoteKeyOption: String, AppEnum {
         case .select: .select
         case .back: .back
         case .home: .home
+        case .voiceSearch: .voiceSearch
+        case .search: .search
         case .power: .power
         case .volumeUp: .volumeUp
         case .volumeDown: .volumeDown
@@ -68,6 +89,8 @@ enum RemoteKeyOption: String, AppEnum {
         case .select: "Select"
         case .back: "Back"
         case .home: "Home"
+        case .voiceSearch: "Voice Search"
+        case .search: "Search"
         case .power: "Power"
         case .volumeUp: "Volume Up"
         case .volumeDown: "Volume Down"
@@ -87,6 +110,8 @@ enum RemoteKeyOption: String, AppEnum {
         case .select: "smallcircle.filled.circle"
         case .back: "arrow.uturn.backward"
         case .home: "house"
+        case .voiceSearch: "mic.fill"
+        case .search: "magnifyingglass"
         case .power: "power"
         case .volumeUp: "speaker.plus"
         case .volumeDown: "speaker.minus"
@@ -98,34 +123,179 @@ enum RemoteKeyOption: String, AppEnum {
     }
 }
 
+struct RemoteDeviceEntity: AppEntity, IndexedEntity, Identifiable, Hashable {
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(
+        name: "TV",
+        synonyms: ["Google TV", "Android TV", "television"]
+    )
+    static let defaultQuery = RemoteDeviceQuery()
+
+    let id: String
+    let name: String
+    let host: String
+    let isPaired: Bool
+
+    init(device: DeviceRecord) {
+        self.id = device.id.uuidString
+        self.name = device.name
+        self.host = device.host
+        self.isPaired = device.isPaired
+    }
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(
+            title: "\(name)",
+            subtitle: isPaired ? "Ready at \(host)" : "Pair in Pult - \(host)",
+            synonyms: ["Google TV", "remote"]
+        )
+    }
+
+    var attributeSet: CSSearchableItemAttributeSet {
+        let attributes = CSSearchableItemAttributeSet(contentType: .item)
+        attributes.title = name
+        attributes.contentDescription = isPaired
+            ? "Paired Google TV at \(host)"
+            : "Unpaired Google TV at \(host)"
+        attributes.keywords = [
+            "Pult",
+            "Google TV",
+            "Android TV",
+            "remote",
+            "remote control",
+            "TV",
+            "television",
+            "Siri",
+            "Shortcuts",
+            "Spotlight",
+            "Control Center",
+            "Lock Screen",
+            "Live Activity",
+            isPaired ? "paired" : "pairing",
+            name,
+            host
+        ]
+        return attributes
+    }
+}
+
+struct RemoteDeviceQuery: EntityStringQuery {
+    func entities(for identifiers: [RemoteDeviceEntity.ID]) async throws -> [RemoteDeviceEntity] {
+        let identifierSet = Set(identifiers)
+        return Self.storedDevices()
+            .filter { identifierSet.contains($0.id.uuidString) }
+            .map(RemoteDeviceEntity.init(device:))
+    }
+
+    func entities(matching string: String) async throws -> [RemoteDeviceEntity] {
+        let query = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return try await suggestedEntities() }
+        return Self.storedDevices()
+            .filter { device in
+                device.name.localizedStandardContains(query)
+                    || device.host.localizedStandardContains(query)
+            }
+            .map(RemoteDeviceEntity.init(device:))
+    }
+
+    func suggestedEntities() async throws -> [RemoteDeviceEntity] {
+        Self.storedDevices().map(RemoteDeviceEntity.init(device:))
+    }
+
+    private static func storedDevices() -> [DeviceRecord] {
+        UserDefaultsDeviceStore().loadDevices()
+    }
+}
+
 struct OpenRemoteIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Remote"
-    static let description = IntentDescription("Open Pult to the remote controls.")
+    static let description = IntentDescription(
+        "Open Pult to the remote controls.",
+        categoryName: "TV Remote",
+        searchKeywords: ["Google TV", "remote", "television", "pairing"]
+    )
     static let openAppWhenRun = true
+    static var parameterSummary: some ParameterSummary {
+        Summary("Open \(\.$device)")
+    }
+
+    @Parameter(
+        title: "TV",
+        description: "The saved Google TV to open.",
+        requestValueDialog: "Which TV should Pult open?"
+    )
+    var device: RemoteDeviceEntity?
+
+    init() {
+        self.device = nil
+    }
+
+    init(device: RemoteDeviceEntity?) {
+        self.device = device
+    }
 
     @MainActor
-    func perform() async throws -> some IntentResult {
-        .result()
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard SharedRemote.model.selectIfAvailable(device) else {
+            return .result(dialog: RemoteIntentDialogs.deviceUnavailable)
+        }
+        if let device = SharedRemote.model.selectedDevice {
+            return .result(dialog: IntentDialog(stringLiteral: "Opening \(device.name)."))
+        }
+        return .result(dialog: "Opening Pult.")
     }
 }
 
 struct SendRemoteKeyIntent: HeadlessRemoteIntent {
     static let title: LocalizedStringResource = "Send Remote Command"
-    static let description = IntentDescription("Send a command to the selected Google TV without opening Pult.")
+    static let description = IntentDescription(
+        "Send a command to a Google TV without opening Pult.",
+        categoryName: "TV Remote",
+        searchKeywords: ["Google TV", "remote", "Siri", "Control Center", "Lock Screen"]
+    )
     static let openAppWhenRun = false
+    static var parameterSummary: some ParameterSummary {
+        Summary("Send \(\.$command) to \(\.$device)")
+    }
 
-    @Parameter(title: "Command")
+    @Parameter(
+        title: "Command",
+        description: "The remote button to press.",
+        default: .playPause,
+        requestValueDialog: "Which remote command should Pult send?"
+    )
     var command: RemoteKeyOption
 
-    init() {}
+    @Parameter(
+        title: "TV",
+        description: "The saved Google TV to control.",
+        requestValueDialog: "Which TV should Pult control?"
+    )
+    var device: RemoteDeviceEntity?
+
+    init() {
+        self.command = .playPause
+        self.device = nil
+    }
 
     init(command: RemoteKeyOption) {
         self.command = command
+        self.device = nil
+    }
+
+    init(command: RemoteKeyOption, device: RemoteDeviceEntity?) {
+        self.command = command
+        self.device = device
     }
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let model = SharedRemote.model
+        guard model.selectIfAvailable(device) else {
+            return .result(dialog: RemoteIntentDialogs.deviceUnavailable)
+        }
+        guard model.selectedDevice != nil else {
+            return .result(dialog: RemoteIntentDialogs.noSavedTV)
+        }
         let outcome = await model.performHeadlessCommand(command.remoteKey)
         #if canImport(ActivityKit) && os(iOS)
         if let device = model.selectedDevice {
@@ -138,15 +308,37 @@ struct SendRemoteKeyIntent: HeadlessRemoteIntent {
         case .sent:
             return .result(dialog: IntentDialog(stringLiteral: "Sent \(command.displayTitle)."))
         case let .failed(message):
-            return .result(dialog: IntentDialog(stringLiteral: message))
+            return .result(dialog: IntentDialog(stringLiteral: "Could not send \(command.displayTitle): \(message)"))
         }
     }
 }
 
 struct StartRemoteSessionIntent: HeadlessRemoteIntent {
     static let title: LocalizedStringResource = "Show TV Remote"
-    static let description = IntentDescription("Connect to the selected Google TV and put the remote on the Lock Screen.")
+    static let description = IntentDescription(
+        "Connect to a Google TV and put the remote on the Lock Screen.",
+        categoryName: "TV Remote",
+        searchKeywords: ["Google TV", "Live Activity", "Lock Screen", "Control Center", "Action button"]
+    )
     static let openAppWhenRun = false
+    static var parameterSummary: some ParameterSummary {
+        Summary("Show remote for \(\.$device)")
+    }
+
+    @Parameter(
+        title: "TV",
+        description: "The saved Google TV to show on the Lock Screen.",
+        requestValueDialog: "Which TV should Pult show on the Lock Screen?"
+    )
+    var device: RemoteDeviceEntity?
+
+    init() {
+        self.device = nil
+    }
+
+    init(device: RemoteDeviceEntity?) {
+        self.device = device
+    }
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -155,8 +347,14 @@ struct StartRemoteSessionIntent: HeadlessRemoteIntent {
         // "PultWidgets") — the key diagnostic for control presses.
         intentLogger.error("StartRemoteSessionIntent in \(ProcessInfo.processInfo.processName, privacy: .public)")
         let model = SharedRemote.model
-        guard let device = model.selectedDevice, device.isPaired else {
-            return .result(dialog: "Open Pult and pair a TV first.")
+        guard model.selectIfAvailable(device) else {
+            return .result(dialog: RemoteIntentDialogs.deviceUnavailable)
+        }
+        guard let device = model.selectedDevice else {
+            return .result(dialog: RemoteIntentDialogs.noSavedTV)
+        }
+        guard device.isPaired else {
+            return .result(dialog: IntentDialog(stringLiteral: "Open Pult and pair \(device.name) first."))
         }
         // The remote appears on the lock screen immediately, in "connecting"
         // state, BEFORE the dial: instant feedback for the Control Center /
@@ -177,7 +375,7 @@ struct StartRemoteSessionIntent: HeadlessRemoteIntent {
         }
         #endif
         if case let .failed(message) = model.session.connectionState {
-            return .result(dialog: IntentDialog(stringLiteral: message))
+            return .result(dialog: IntentDialog(stringLiteral: "Could not show the remote for \(device.name): \(message)"))
         }
         return .result(dialog: IntentDialog(stringLiteral: "Remote ready for \(device.name)."))
     }
@@ -185,26 +383,90 @@ struct StartRemoteSessionIntent: HeadlessRemoteIntent {
 
 struct EndRemoteSessionIntent: HeadlessRemoteIntent {
     static let title: LocalizedStringResource = "Hide TV Remote"
-    static let description = IntentDescription("Disconnect and remove the remote from the Lock Screen.")
+    static let description = IntentDescription(
+        "Disconnect and remove the remote from the Lock Screen.",
+        categoryName: "TV Remote",
+        searchKeywords: ["Google TV", "Live Activity", "Lock Screen", "remote"]
+    )
     static let openAppWhenRun = false
 
     @MainActor
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         SharedRemote.model.session.disconnect()
         #if canImport(ActivityKit) && os(iOS)
         await RemoteActivityController.shared.endAll()
         #endif
-        return .result()
+        return .result(dialog: "TV remote hidden.")
+    }
+}
+
+enum RemoteIntentIndex {
+    @MainActor
+    static func refreshDevices(_ devices: [DeviceRecord]) async {
+        let entities = devices.map(RemoteDeviceEntity.init(device:))
+        do {
+            let index = CSSearchableIndex.default()
+            try await index.deleteAppEntities(ofType: RemoteDeviceEntity.self)
+            if !entities.isEmpty {
+                try await index.indexAppEntities(entities)
+            }
+        } catch {
+            intentLogger.debug("Remote device indexing failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+
+    @MainActor
+    static func donateSelectedDeviceShortcuts(for device: DeviceRecord?) async {
+        guard let device else { return }
+        let entity = RemoteDeviceEntity(device: device)
+        do {
+            try await IntentDonationManager.shared.donate(intent: OpenRemoteIntent(device: entity))
+            try await IntentDonationManager.shared.donate(intent: StartRemoteSessionIntent(device: entity))
+            try await IntentDonationManager.shared.donate(
+                intent: SendRemoteKeyIntent(command: .playPause, device: entity)
+            )
+        } catch {
+            intentLogger.debug("Remote intent donation failed: \(String(describing: error), privacy: .public)")
+        }
+    }
+}
+
+struct SelectRemoteDeviceIntent: ControlConfigurationIntent {
+    static let title: LocalizedStringResource = "Choose TV"
+    static let description = IntentDescription(
+        "Choose the saved Google TV for a Pult control.",
+        categoryName: "TV Remote",
+        searchKeywords: ["Google TV", "Control Center", "remote"]
+    )
+    static var parameterSummary: some ParameterSummary {
+        Summary("Use \(\.$device)")
+    }
+
+    @Parameter(
+        title: "TV",
+        description: "The saved Google TV this control should use.",
+        requestValueDialog: "Which TV should this control use?"
+    )
+    var device: RemoteDeviceEntity?
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        .result()
     }
 }
 
 struct PultShortcuts: AppShortcutsProvider {
+    static let shortcutTileColor: ShortcutTileColor = .teal
+
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
             intent: OpenRemoteIntent(),
             phrases: [
                 "Open \(.applicationName)",
-                "Open remote in \(.applicationName)"
+                "Open remote in \(.applicationName)",
+                "Open my TV remote in \(.applicationName)",
+                "Open \(\.$device) in \(.applicationName)",
+                "Open \(\.$device) remote in \(.applicationName)"
             ],
             shortTitle: "Open Remote",
             systemImageName: "av.remote"
@@ -214,7 +476,10 @@ struct PultShortcuts: AppShortcutsProvider {
             intent: StartRemoteSessionIntent(),
             phrases: [
                 "Show my TV remote with \(.applicationName)",
-                "\(.applicationName) remote"
+                "\(.applicationName) remote",
+                "Show the Lock Screen remote with \(.applicationName)",
+                "Show \(\.$device) remote with \(.applicationName)",
+                "Put \(\.$device) remote on the Lock Screen with \(.applicationName)"
             ],
             shortTitle: "TV Remote",
             systemImageName: "av.remote"
@@ -224,10 +489,33 @@ struct PultShortcuts: AppShortcutsProvider {
             intent: SendRemoteKeyIntent(),
             phrases: [
                 "\(\.$command) the TV with \(.applicationName)",
+                "\(\.$command) with \(.applicationName)",
+                "Send \(\.$command) to the TV with \(.applicationName)",
+                "Send a command to \(\.$device) with \(.applicationName)",
                 "Send TV command with \(.applicationName)"
             ],
-            shortTitle: "TV Command",
+            shortTitle: "Send Command",
             systemImageName: "tv"
         )
+    }
+}
+
+private enum RemoteIntentDialogs {
+    static let deviceUnavailable: IntentDialog =
+        "That TV is no longer saved in Pult. Open Pult to choose another TV."
+    static let noSavedTV: IntentDialog =
+        "Open Pult and add a Google TV first."
+}
+
+private extension RemoteControlModel {
+    @discardableResult
+    func selectIfAvailable(_ entity: RemoteDeviceEntity?) -> Bool {
+        guard let entity else { return true }
+        guard let id = UUID(uuidString: entity.id),
+              let device = discovery.devices.first(where: { $0.id == id }) else {
+            return false
+        }
+        select(device)
+        return true
     }
 }
