@@ -345,7 +345,7 @@ struct StartRemoteSessionIntent: HeadlessRemoteIntent {
         // The process name tells us whether the system honored the
         // LiveActivityIntent app-process routing (it must say "Pult", not
         // "PultWidgets") — the key diagnostic for control presses.
-        intentLogger.error("StartRemoteSessionIntent in \(ProcessInfo.processInfo.processName, privacy: .public)")
+        intentLogger.debug("StartRemoteSessionIntent in \(ProcessInfo.processInfo.processName, privacy: .public)")
         let model = SharedRemote.model
         guard model.selectIfAvailable(device) else {
             return .result(dialog: RemoteIntentDialogs.deviceUnavailable)

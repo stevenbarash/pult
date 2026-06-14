@@ -250,7 +250,7 @@ private struct PultCapabilityStrip: View {
     @ViewBuilder
     private var capabilities: some View {
         PultStatusChip(title: "D-pad", systemImage: "dpad", tint: .pultAccent)
-        PultStatusChip(title: "IME", systemImage: "text.cursor", tint: PultDesign.utility)
+        PultStatusChip(title: "Text Entry", systemImage: "text.cursor", tint: PultDesign.utility)
         PultStatusChip(title: "Live Activity", systemImage: "rectangle.on.rectangle", tint: PultDesign.warning)
     }
 }
