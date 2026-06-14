@@ -9,7 +9,7 @@ struct VolumeMuteButton: View {
             Image(systemName: "speaker.slash.fill")
                 .font(.system(size: 19, weight: .semibold))
                 .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(PultDesign.utility)
+                .foregroundStyle(.secondary)
                 .frame(width: 72, height: 56)
                 .contentShape(.rect)
         }
@@ -32,26 +32,23 @@ struct RemoteCommandEchoView: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: echo.systemImage)
-                .font(.caption.weight(.bold))
+                .font(.caption.weight(.semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(echo.tint)
-                .frame(width: 18)
+                .frame(width: 16)
             Text(echo.title)
                 .font(PultTypography.captionStrong)
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
         }
-        .padding(.horizontal, 12)
-        .frame(minHeight: 34)
-        .background {
-            Capsule()
-                .fill(PultDesign.carbonMid.opacity(0.86))
-        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 36)
+        .background(.regularMaterial, in: .capsule)
         .overlay {
             Capsule()
-                .stroke(echo.tint.opacity(0.36), lineWidth: 1)
+                .stroke(echo.tint.opacity(0.28), lineWidth: 1)
         }
-        .shadow(color: echo.tint.opacity(0.24), radius: 18, y: 8)
+        .shadow(color: .black.opacity(0.18), radius: 12, y: 4)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(echo.title)
         .allowsHitTesting(false)
@@ -67,13 +64,14 @@ struct CommandFailureBanner: View {
 
     var body: some View {
         let tint = PultDesign.danger
-        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "wifi.exclamationmark")
                     .font(.body.weight(.semibold))
                     .foregroundStyle(tint)
+                    .frame(width: 24)
                     .padding(.top, 1)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(failure.message)
@@ -105,8 +103,8 @@ struct CommandFailureBanner: View {
             .font(.caption.weight(.semibold))
             .controlSize(.regular)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .pultContentSurface(in: shape, tint: tint, isProminent: true)
         .accessibilityElement(children: .contain)
     }
@@ -153,12 +151,13 @@ struct StatusBanner: View {
     var action: () -> Void
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: systemImage)
                 .font(.body.weight(.semibold))
                 .foregroundStyle(tint)
+                .frame(width: 24)
                 .accessibilityHidden(true)
             Text(message)
                 .font(PultTypography.bodySmall)
@@ -170,8 +169,8 @@ struct StatusBanner: View {
                 .tint(tint)
                 .frame(minHeight: 44)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .pultContentSurface(in: shape, tint: tint, isProminent: true)
         .accessibilityElement(children: .contain)
     }
@@ -182,9 +181,9 @@ struct ConnectingBanner: View {
 
     var body: some View {
         let tint = PultDesign.accent
-        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
 
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             ProgressView()
                 .progressViewStyle(.circular)
                 .controlSize(.small)
@@ -196,8 +195,8 @@ struct ConnectingBanner: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .foregroundStyle(.primary)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .pultContentSurface(in: shape, tint: tint, isProminent: true)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(message)
@@ -217,7 +216,7 @@ struct RemoteStatusHeader: View {
         let presentation = RemoteConnectionPresentation(state: state, isPaired: isPaired)
 
         HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(device?.name ?? "No TV Selected")
                     .font(PultTypography.subhead)
                     .lineLimit(1)
@@ -234,17 +233,20 @@ struct RemoteStatusHeader: View {
                         systemImage: validationPresentation.systemImage,
                         tint: validationPresentation.tint
                     )
-                    .frame(maxWidth: 190, alignment: .leading)
+                    .frame(maxWidth: 200, alignment: .leading)
+                    .padding(.top, 2)
                 }
             }
 
             Spacer(minLength: 0)
 
-            VStack(alignment: .trailing, spacing: 6) {
-                HStack(spacing: 6) {
+            VStack(alignment: .trailing, spacing: 8) {
+                // Connection state pill — sage = live, danger = failed,
+                // muted gold = connecting/unpaired, secondary = disconnected.
+                HStack(spacing: 5) {
                     Circle()
                         .fill(presentation.tint)
-                        .frame(width: 8, height: 8)
+                        .frame(width: 7, height: 7)
                     Text(presentation.title)
                         .font(PultTypography.captionStrong)
                         .foregroundStyle(presentation.tint)
@@ -260,7 +262,7 @@ struct RemoteStatusHeader: View {
                 }
             }
         }
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 2)
         .accessibilityValue(validationPresentation.title)
         .accessibilityElement(children: .combine)
     }

@@ -113,24 +113,14 @@ struct TouchpadView: View {
 
     private var touchpadTexture: some View {
         ZStack {
+            // Clean, near-flat fill — the glass effect above provides the
+            // material quality; this just anchors the surface visually.
             RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            PultDesign.surfaceRaised,
-                            PultDesign.surface.opacity(0.34),
-                            Color.black.opacity(0.08)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-            RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius - 8, style: .continuous)
-                .stroke(PultDesign.accent.opacity(0.10), lineWidth: 1)
-                .padding(18)
-            RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius - 14, style: .continuous)
-                .stroke(PultDesign.hairline, lineWidth: 1)
-                .padding(36)
+                .fill(PultDesign.surface.opacity(0.60))
+            // Single inner accent ring to signal the interactive zone.
+            RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius - 10, style: .continuous)
+                .stroke(PultDesign.accent.opacity(0.12), lineWidth: 1)
+                .padding(20)
         }
         .accessibilityHidden(true)
     }
@@ -138,10 +128,10 @@ struct TouchpadView: View {
     private var edgeHints: some View {
         ForEach(TouchpadEdge.allCases, id: \.self) { edge in
             Image(systemName: edge.chevronName)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(PultDesign.accent.opacity(edgeHintOpacity))
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.secondary.opacity(edgeHintOpacity))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: edge.alignment)
-                .padding(18)
+                .padding(16)
         }
     }
 
@@ -163,7 +153,7 @@ struct TouchpadView: View {
     }
 
     private var edgeHintOpacity: Double {
-        colorSchemeContrast == .increased ? 0.36 : 0.14
+        colorSchemeContrast == .increased ? 0.48 : 0.22
     }
 }
 

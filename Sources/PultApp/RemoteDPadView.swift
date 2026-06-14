@@ -41,33 +41,18 @@ private struct DPadDial: View {
 
     var body: some View {
         ZStack {
+            // Clean flat fill — the GlassShapeButtonStyle on each wedge
+            // provides the interactive material. A radial ring gives depth.
             Circle()
-                .fill(
-                    RadialGradient(
-                        colors: [
-                            PultDesign.surfaceStrong,
-                            PultDesign.surface.opacity(0.58),
-                            Color.black.opacity(0.18)
-                        ],
-                        center: .center,
-                        startRadius: side * 0.08,
-                        endRadius: side * 0.50
-                    )
-                )
+                .fill(PultDesign.surfaceRaised)
+            Circle()
+                .stroke(PultDesign.hairlineStrong, lineWidth: 1)
+            // Subtle inner guide ring to orient the eye toward the center.
             Circle()
                 .stroke(PultDesign.hairline, lineWidth: 1)
-            Circle()
-                .stroke(PultDesign.accent.opacity(0.14), lineWidth: 1)
-                .frame(width: side * 0.72, height: side * 0.72)
-            ForEach(0..<4, id: \.self) { index in
-                Capsule()
-                    .fill(PultDesign.accent.opacity(0.18))
-                    .frame(width: side * 0.07, height: 2)
-                    .offset(y: -side * 0.41)
-                    .rotationEffect(.degrees(Double(index) * 90))
-            }
+                .frame(width: side * 0.70, height: side * 0.70)
         }
-        .padding(side * 0.04)
+        .padding(side * 0.03)
         .accessibilityHidden(true)
     }
 }
@@ -85,33 +70,41 @@ private struct DPadCenterButton: View {
     @State private var longPressTask: Task<Void, Never>?
 
     var body: some View {
-        Circle()
-            .fill(PultDesign.accent.opacity(0.10))
-            .frame(width: side * 0.36, height: side * 0.36)
-            .contentShape(.circle)
-            .scaleEffect(isPressed ? 0.92 : 1)
-            .animation(reduceMotion ? nil : .snappy(duration: 0.16), value: isPressed)
-            .gesture(pressGesture)
-            .onDisappear(perform: cancelInteraction)
-            .onChange(of: scenePhase) { _, newPhase in
-                if newPhase != .active {
-                    cancelInteraction()
-                }
+        ZStack {
+            // Visible center disc — slightly raised surface so it reads
+            // clearly as a distinct button, not a decoration.
+            Circle()
+                .fill(PultDesign.surfaceStrong)
+                .frame(width: side * 0.36, height: side * 0.36)
+            Circle()
+                .stroke(PultDesign.hairlineStrong, lineWidth: 1)
+                .frame(width: side * 0.36, height: side * 0.36)
+        }
+        .frame(width: side * 0.36, height: side * 0.36)
+        .contentShape(.circle)
+        .scaleEffect(isPressed ? 0.90 : 1)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.14), value: isPressed)
+        .gesture(pressGesture)
+        .onDisappear(perform: cancelInteraction)
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase != .active {
+                cancelInteraction()
             }
-            .onChange(of: isActive) { _, isActive in
-                if !isActive {
-                    cancelInteraction()
-                }
+        }
+        .onChange(of: isActive) { _, isActive in
+            if !isActive {
+                cancelInteraction()
             }
-            .glassEffect(.regular.tint(PultDesign.accent.opacity(0.34)).interactive(), in: .circle)
-            .pultGlassFallback(in: Circle(), tint: PultDesign.accent, isProminent: true)
-            .accessibilityLabel("Select")
-            .accessibilityAddTraits(.isButton)
-            .accessibilityHint("Double-tap to select. Touch and hold for OK long press.")
-            .accessibilityAction { send(.select) }
-            .accessibilityAction(named: "Long press") {
-                performAccessibilityLongPress()
-            }
+        }
+        .glassEffect(.regular.tint(PultDesign.accent.opacity(0.18)).interactive(), in: .circle)
+        .pultGlassFallback(in: Circle(), tint: PultDesign.accent, isProminent: true)
+        .accessibilityLabel("Select")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Double-tap to select. Touch and hold for OK long press.")
+        .accessibilityAction { send(.select) }
+        .accessibilityAction(named: "Long press") {
+            performAccessibilityLongPress()
+        }
     }
 
     private var pressGesture: some Gesture {
@@ -197,7 +190,7 @@ private struct DPadWedgeButton: View {
                     Image(systemName: direction.systemImage)
                         .font(.system(size: side * 0.07 + 12, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(PultDesign.warmInk.opacity(0.86))
+                        .foregroundStyle(.primary)
                         .offset(iconOffset)
                 }
                 .contentShape(wedge)

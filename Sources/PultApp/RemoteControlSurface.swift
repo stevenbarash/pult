@@ -414,15 +414,15 @@ struct RemoteControlSurface: View {
             navigationSurface(layout: layout)
             modeToggle
         }
-        .padding(12)
+        .padding(14)
         .background {
             shape
-                .fill(PultDesign.surface)
+                .fill(PultDesign.surfaceRaised)
                 .allowsHitTesting(false)
         }
         .overlay {
             shape
-                .stroke(PultDesign.hairline, lineWidth: 1)
+                .stroke(PultDesign.hairlineStrong, lineWidth: 1)
                 .allowsHitTesting(false)
         }
     }
@@ -436,28 +436,38 @@ struct RemoteControlSurface: View {
             modeToggle
             utilityRow(layout: layout)
         }
-        .padding(10)
+        .padding(14)
         .background {
             shape
-                .fill(PultDesign.surface)
+                .fill(PultDesign.surfaceRaised)
                 .allowsHitTesting(false)
         }
         .overlay {
             shape
-                .stroke(PultDesign.hairline, lineWidth: 1)
+                .stroke(PultDesign.hairlineStrong, lineWidth: 1)
                 .allowsHitTesting(false)
         }
     }
 
     private var navigationCaption: some View {
         HStack(spacing: 10) {
+            Image(systemName: controlMode.systemImage)
+                .font(.caption.weight(.semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Text(controlMode.label)
                 .font(PultTypography.captionStrong)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)
-            Text(controlsAreEnabled ? "Ready" : "Standby")
-                .font(PultTypography.captionStrong)
-                .foregroundStyle(controlsAreEnabled ? PultDesign.connected : .secondary)
+            HStack(spacing: 5) {
+                Circle()
+                    .fill(controlsAreEnabled ? PultDesign.connected : PultDesign.mutedInk)
+                    .frame(width: 6, height: 6)
+                Text(controlsAreEnabled ? "Live" : "Offline")
+                    .font(PultTypography.captionStrong)
+                    .foregroundStyle(controlsAreEnabled ? PultDesign.connected : Color.secondary)
+            }
         }
     }
 
@@ -487,7 +497,7 @@ struct RemoteControlSurface: View {
     private var touchpadSurface: some View {
         TouchpadView(send: sendKey)
             .glassEffect(
-                .regular.tint(PultDesign.accent.opacity(0.05)).interactive(),
+                .regular.interactive(),
                 in: .rect(cornerRadius: RemoteMetrics.surfaceCornerRadius)
             )
             .pultGlassFallback(
@@ -499,12 +509,22 @@ struct RemoteControlSurface: View {
     }
 
     private var modeToggle: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             ForEach(ControlMode.allCases, id: \.rawValue) { mode in
                 modeToggleButton(for: mode)
             }
         }
-        .padding(5)
+        .padding(4)
+        .background {
+            Capsule()
+                .fill(PultDesign.surface)
+                .allowsHitTesting(false)
+        }
+        .overlay {
+            Capsule()
+                .stroke(PultDesign.hairline, lineWidth: 1)
+                .allowsHitTesting(false)
+        }
         .glassEffect(.regular, in: .capsule)
         .pultGlassFallback(in: Capsule())
         .transaction { transaction in
@@ -534,10 +554,17 @@ struct RemoteControlSurface: View {
             .contentShape(.capsule)
         }
         .buttonStyle(.plain)
-        .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+        .foregroundStyle(isSelected ? PultDesign.accent : Color.secondary)
         .background {
             Capsule()
-                .fill(PultDesign.accent.opacity(isSelected ? 0.22 : 0))
+                .fill(isSelected ? PultDesign.accent.opacity(0.16) : Color.clear)
+        }
+        .overlay {
+            if isSelected {
+                Capsule()
+                    .stroke(PultDesign.accent.opacity(0.30), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
         }
         .accessibilityLabel(mode.label)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
@@ -567,12 +594,12 @@ struct RemoteControlSurface: View {
 
     private func commandCluster(layout: RemoteSurfaceLayout) -> some View {
         GlassEffectContainer(spacing: 10) {
-            VStack(alignment: .leading, spacing: RemoteMetrics.clusterSpacing) {
+            VStack(alignment: .leading, spacing: RemoteMetrics.clusterSpacing + 2) {
                 utilityRow(layout: layout)
                 primaryActionRow
                 mediaRow(layout: layout)
             }
-            .padding(12)
+            .padding(14)
             .pultContentSurface(
                 in: RoundedRectangle(cornerRadius: 30, style: .continuous),
                 isProminent: true
@@ -582,11 +609,11 @@ struct RemoteControlSurface: View {
 
     private func compactSecondaryCluster(layout: RemoteSurfaceLayout) -> some View {
         GlassEffectContainer(spacing: 10) {
-            VStack(alignment: .leading, spacing: RemoteMetrics.clusterSpacing) {
+            VStack(alignment: .leading, spacing: RemoteMetrics.clusterSpacing + 2) {
                 primaryActionRow
                 mediaRow(layout: layout)
             }
-            .padding(10)
+            .padding(14)
             .pultContentSurface(
                 in: RoundedRectangle(cornerRadius: 26, style: .continuous),
                 isProminent: true
@@ -695,14 +722,14 @@ struct RemoteControlSurface: View {
         .frame(maxWidth: maxWidth)
         .background {
             Capsule()
-                .fill(PultDesign.surface)
+                .fill(PultDesign.surfaceRaised)
                 .allowsHitTesting(false)
         }
-        .glassEffect(.regular.tint(PultDesign.utility.opacity(0.08)).interactive(), in: .capsule)
+        .glassEffect(.regular.interactive(), in: .capsule)
         .pultGlassFallback(in: Capsule())
         .overlay {
             Capsule()
-                .stroke(PultDesign.hairline, lineWidth: 1)
+                .stroke(PultDesign.hairlineStrong, lineWidth: 1)
                 .allowsHitTesting(false)
         }
     }

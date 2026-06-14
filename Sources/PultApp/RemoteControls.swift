@@ -293,7 +293,8 @@ struct PultSheetSectionHeader: View {
     }
 }
 
-/// A circular Liquid Glass remote key. Press haptics come from the surface's
+/// A circular remote key with a calm material backing — reads clearly as
+/// tappable without heavy chrome. Press haptics come from the surface's
 /// shared key-press feedback, not from the button itself.
 struct RemoteCircleButton: View {
     var systemImage: String
@@ -314,7 +315,7 @@ struct RemoteCircleButton: View {
                 .frame(width: hitSize, height: hitSize)
                 .contentShape(.circle)
         }
-        .buttonStyle(GlassShapeButtonStyle(shape: .circle))
+        .buttonStyle(NativeCircleButtonStyle(size: size))
         .accessibilityLabel(label)
     }
 }
@@ -434,6 +435,7 @@ private struct PultContentSurface<S: Shape>: ViewModifier {
 }
 
 /// Applies interactive Liquid Glass in an arbitrary shape with a press scale.
+/// Used for non-circle controls (touchpad mode toggle, launcher, d-pad wedges).
 struct GlassShapeButtonStyle<S: Shape>: ButtonStyle {
     var shape: S
 
@@ -464,6 +466,47 @@ struct GlassShapeButtonStyle<S: Shape>: ButtonStyle {
                         .allowsHitTesting(false)
                 }
         }
+    }
+}
+
+/// A calm, native-feeling circular button style: a visible but restrained
+/// material backing (surfaceRaised tint + subtle hairline ring) so buttons
+/// read clearly as tappable at a glance, with a gentle press scale.
+private struct NativeCircleButtonStyle: ButtonStyle {
+    var size: CGFloat
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+
+    @ViewBuilder
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed
+        configuration.label
+            .scaleEffect(pressed ? 0.91 : 1)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.14), value: pressed)
+            .background {
+                Circle()
+                    .fill(
+                        reduceTransparency
+                            ? PultDesign.carbonMid
+                            : PultDesign.surfaceRaised
+                    )
+                    .opacity(pressed ? 0.72 : 1)
+                    .allowsHitTesting(false)
+            }
+            .overlay {
+                if !reduceTransparency {
+                    Circle()
+                        .stroke(
+                            PultDesign.hairlineStrong.opacity(
+                                colorSchemeContrast == .increased ? 0.56 : 1
+                            ),
+                            lineWidth: colorSchemeContrast == .increased ? 1.5 : 1
+                        )
+                        .allowsHitTesting(false)
+                }
+            }
     }
 }
 
