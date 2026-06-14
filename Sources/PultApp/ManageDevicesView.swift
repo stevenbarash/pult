@@ -32,14 +32,19 @@ struct ManageDevicesView: View {
                     .onMove(perform: model.moveDevices)
                     .onDelete(perform: model.deleteDevices)
                 } footer: {
-                    Text("Tap to select a TV. Use Edit to reorder saved TVs, or delete entries that moved networks. Add the same TV by Manual IP if it no longer appears nearby.")
+                    Text("Tap a TV to select it. Swipe left to delete, or use Edit to reorder. Add the same TV by Manual IP if it no longer appears nearby.")
                 }
             }
-            .navigationTitle("TVs")
+            #if os(iOS)
+            .listStyle(.insetGrouped)
+            #else
+            .listStyle(.inset)
+            #endif
             .scrollContentBackground(.hidden)
             .background { RemoteBackground() }
+            .navigationTitle("TVs")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -71,26 +76,40 @@ private struct DeviceManagementRow: View {
         HStack(spacing: 12) {
             Image(systemName: device.isPaired ? "tv" : "tv.slash")
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(device.isPaired ? Color.primary : PultDesign.warning)
+                .foregroundStyle(device.isPaired ? Color.pultAccent : PultDesign.warning)
                 .frame(width: 28)
+
             VStack(alignment: .leading, spacing: 3) {
                 Text(device.name)
                     .font(.body.weight(.semibold))
-                Text("\(device.host) - \(presence.managementText) - \(reachability.shortDiagnosticText)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .foregroundStyle(.primary)
+
+                HStack(spacing: 4) {
+                    Text(device.host)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                    Text("·")
+                        .foregroundStyle(.tertiary)
+                    Text(presence.managementText)
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
+
             Spacer()
-            Text(device.isPaired ? "Paired" : "Pair required")
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(device.isPaired ? PultDesign.connected : PultDesign.warning)
-            if isSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.tint)
-                    .accessibilityLabel("Selected")
+
+            VStack(alignment: .trailing, spacing: 4) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.tint)
+                        .accessibilityLabel("Selected")
+                }
+                Text(device.isPaired ? "Paired" : "Pair required")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(device.isPaired ? PultDesign.connected : PultDesign.warning)
             }
         }
+        .frame(minHeight: 44)
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(device.name), \(device.host)")

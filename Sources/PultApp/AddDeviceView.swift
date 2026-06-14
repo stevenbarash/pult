@@ -80,35 +80,30 @@ struct AddDeviceView: View {
 
     private var scanButtonTitle: String {
         if isScanning {
-            return "Scanning"
+            return "Scanning…"
         }
         return hasStartedScan ? "Retry Scan" : "Scan Nearby TVs"
     }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    PultSheetHero(
-                        systemImage: "tv.and.mediabox",
-                        title: "Add a Google TV",
-                        subtitle: "Scan nearby devices first, then fall back to a host or IP address when the network is quiet."
-                    )
-                    nearbySection
-                    manualIPSection
-                }
-                .frame(maxWidth: 560, alignment: .leading)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 22)
+            List {
+                nearbySection
+                manualIPSection
             }
+            #if os(iOS)
+            .listStyle(.insetGrouped)
+            #else
+            .listStyle(.inset)
+            #endif
+            .scrollContentBackground(.hidden)
             #if os(iOS)
             .scrollDismissesKeyboard(.interactively)
             #endif
             .background { RemoteBackground() }
             .navigationTitle("Add TV")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -128,63 +123,81 @@ struct AddDeviceView: View {
         .preferredColorScheme(.dark)
     }
 
+    // MARK: - Nearby Section
+
+    @ViewBuilder
     private var nearbySection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            PultSheetSectionHeader(
-                title: "Nearby TVs",
-                detail: "Bonjour discovery probes the command port as devices appear."
-            )
+        Section {
+            // Discovery status row
             DiscoveryStatusRow(status: discoveryStatus)
 
+            // Discovered devices
             ForEach(model.discovery.discoveredDevices) { device in
                 let savedDevice = savedRecord(for: device)
                 let readiness = readiness(for: device, savedDevice: savedDevice)
                 Button {
                     addDiscoveredDevice(device)
                 } label: {
-                    DiscoveredDeviceRow(
-                        device: device,
-                        readiness: readiness
-                    )
-                    .padding(12)
-                    .pultContentSurface(
-                        in: RoundedRectangle(cornerRadius: 18, style: .continuous),
-                        tint: readiness.color
-                    )
+                    DiscoveredDeviceRow(device: device, readiness: readiness)
                 }
-                .buttonStyle(.plain)
                 .accessibilityHint(readiness.actionHint)
             }
 
-            DiscoveryActionRow(
-                scanTitle: scanButtonTitle,
-                isScanning: isScanning,
-                startScan: startScan,
-                focusManualIP: focusManualIP
-            )
+            // Scan action buttons
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    scanButton
+                    enterIPButton
+                }
 
-            Text("If a TV disappears from discovery, Manual IP is the reliable fallback.")
-                .font(PultTypography.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(3)
+                VStack(spacing: 10) {
+                    scanButton
+                    enterIPButton
+                }
+            }
+            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+        } header: {
+            Text("Nearby TVs")
+        } footer: {
+            Text("If a TV disappears from discovery, Manual IP below is the reliable fallback.")
         }
-        .padding(16)
-        .pultContentSurface(
-            in: RoundedRectangle(cornerRadius: 28, style: .continuous),
-            tint: .pultAccent,
-            isProminent: true
-        )
     }
 
-    private var manualIPSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            PultSheetSectionHeader(
-                title: "Manual IP",
-                detail: "Use this for routers, sleeping TVs, or Local Network permission gaps."
-            )
-            ManualIPGuidanceRow()
+    private var scanButton: some View {
+        Button {
+            startScan()
+        } label: {
+            Label(scanButtonTitle,
+                  systemImage: isScanning ? "antenna.radiowaves.left.and.right" : "arrow.clockwise")
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(isScanning)
+        .accessibilityHint(isScanning ? "A local network scan is already running." : "Search again for nearby Google TVs.")
+    }
 
-            textFieldRow(systemImage: "tv") {
+    private var enterIPButton: some View {
+        Button {
+            focusManualIP()
+        } label: {
+            Label("Enter IP", systemImage: "keyboard")
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.bordered)
+        .accessibilityHint("Moves focus to manual address entry.")
+    }
+
+    // MARK: - Manual IP Section
+
+    @ViewBuilder
+    private var manualIPSection: some View {
+        Section {
+            // Name field
+            HStack(spacing: 12) {
+                Image(systemName: "tv")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24)
                 TextField("Living Room TV", text: $name)
                     .textContentType(.name)
                     .focused($focusedField, equals: .name)
@@ -193,8 +206,14 @@ struct AddDeviceView: View {
                     .accessibilityLabel("TV name")
                     .accessibilityHint("Optional. Leave blank to use the host as the device name.")
             }
+            .frame(minHeight: 44)
 
-            textFieldRow(systemImage: "network") {
+            // Host field
+            HStack(spacing: 12) {
+                Image(systemName: "network")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24)
                 TextField("192.168.1.42", text: $host)
                     #if os(iOS)
                     .keyboardType(.numbersAndPunctuation)
@@ -208,56 +227,35 @@ struct AddDeviceView: View {
                     .accessibilityLabel("IP address or hostname")
                     .accessibilityHint("Enter the TV address, such as 192.168.1.42 or Android.local.")
             }
+            .frame(minHeight: 44)
 
+            // Inline validation feedback
             if let feedback = hostValidation.feedback {
                 Label(feedback.message, systemImage: feedback.systemImage)
-                    .font(PultTypography.captionStrong)
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(feedback.color)
                     .lineLimit(2)
+                    .listRowBackground(Color.clear)
             }
 
-            Button("Add TV", systemImage: "plus", action: addDevice)
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .frame(maxWidth: .infinity, minHeight: 48)
-                .disabled(!canAddDevice)
-                .accessibilityHint(addButtonAccessibilityHint)
-
+            // Add TV primary button
+            Button(action: addDevice) {
+                Label("Add TV", systemImage: "plus")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(!canAddDevice)
+            .accessibilityHint(addButtonAccessibilityHint)
+            .listRowInsets(EdgeInsets(top: 10, leading: 16, bottom: 10, trailing: 16))
+            .listRowBackground(Color.clear)
+        } header: {
+            Text("Manual IP")
+        } footer: {
             Text("Find the TV's IP address under Settings > Network & Internet on the TV. Local hostnames like Android.local are also OK when your router resolves them.")
-                .font(PultTypography.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(4)
         }
-        .padding(16)
-        .pultContentSurface(
-            in: RoundedRectangle(cornerRadius: 28, style: .continuous),
-            isProminent: true
-        )
     }
 
-    private func textFieldRow<Content: View>(
-        systemImage: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 24)
-            content()
-                .font(PultTypography.body)
-        }
-        .padding(.horizontal, 12)
-        .frame(minHeight: 48)
-        .background {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(PultDesign.surface)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(PultDesign.hairline, lineWidth: 1)
-        }
-    }
+    // MARK: - Helpers
 
     private var appSettingsAction: (() -> Void)? {
         #if os(iOS)
@@ -335,6 +333,8 @@ struct AddDeviceView: View {
         await model.discovery.refresh()
     }
 }
+
+// MARK: - Supporting types (unchanged logic)
 
 private struct HostInputValidation {
     var normalizedHost: String
@@ -489,6 +489,8 @@ private struct DeviceReadinessPresentation {
     }
 }
 
+// MARK: - Row Views
+
 private struct DiscoveredDeviceRow: View {
     let device: DiscoveredDevice
     let readiness: DeviceReadinessPresentation
@@ -530,6 +532,7 @@ private struct DiscoveredDeviceRow: View {
             .font(.caption.weight(.semibold))
             .foregroundStyle(readiness.color)
         }
+        .frame(minHeight: 44)
         .contentShape(.rect)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel)
@@ -545,48 +548,6 @@ private struct DiscoveredDeviceRow: View {
             parts.append(detail)
         }
         return parts.joined(separator: ", ")
-    }
-}
-
-private struct DiscoveryActionRow: View {
-    let scanTitle: String
-    let isScanning: Bool
-    var startScan: () -> Void
-    var focusManualIP: () -> Void
-
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                scanButton
-                manualIPButton
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                scanButton
-                manualIPButton
-            }
-        }
-    }
-
-    private var scanButton: some View {
-        Button(scanTitle, systemImage: isScanning ? "antenna.radiowaves.left.and.right" : "arrow.clockwise") {
-            startScan()
-        }
-        .buttonStyle(.glassProminent)
-        .controlSize(.regular)
-        .frame(maxWidth: .infinity, minHeight: 44)
-        .disabled(isScanning)
-        .accessibilityHint(isScanning ? "A local network scan is already running." : "Search again for nearby Google TVs.")
-    }
-
-    private var manualIPButton: some View {
-        Button("Enter IP", systemImage: "keyboard") {
-            focusManualIP()
-        }
-        .buttonStyle(.glass)
-        .controlSize(.regular)
-        .frame(maxWidth: .infinity, minHeight: 44)
-        .accessibilityHint("Moves focus to manual address entry.")
     }
 }
 
@@ -616,29 +577,17 @@ private struct DiscoveryStatusRow: View {
                 }
             }
             if let openSettings = status.openSettingsAction {
-                Button("Open Settings", systemImage: "gear") {
+                Button {
                     openSettings()
+                } label: {
+                    Label("Open Settings", systemImage: "gear")
+                        .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .buttonStyle(.glassProminent)
-                .controlSize(.regular)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .buttonStyle(.bordered)
                 .accessibilityHint("Opens Pult in iOS Settings so you can turn on Local Network access.")
             }
         }
+        .padding(.vertical, 4)
         .accessibilityElement(children: status.openSettingsAction == nil ? .combine : .contain)
-    }
-}
-
-private struct ManualIPGuidanceRow: View {
-    var body: some View {
-        Label {
-            Text("On the TV, open Settings > Network & Internet and enter the active network IP address here. Local hostnames like Android.local are also OK when your router resolves them.")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        } icon: {
-            Image(systemName: "info.circle")
-                .foregroundStyle(Color.pultAccent)
-        }
-        .accessibilityElement(children: .combine)
     }
 }

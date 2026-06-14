@@ -11,20 +11,26 @@ struct PairingView: View {
 
     var body: some View {
         NavigationStack {
-            content
-                .animation(pairingPhaseAnimation, value: model.pairingState)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(contentPadding)
-                .background { RemoteBackground() }
-                .navigationTitle("Pair with TV")
-                #if os(iOS)
-                .navigationBarTitleDisplayMode(.inline)
-                #endif
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel", action: finish)
-                    }
+            List {
+                contentSection
+            }
+            #if os(iOS)
+            .listStyle(.insetGrouped)
+            #else
+            .listStyle(.inset)
+            #endif
+            .scrollContentBackground(.hidden)
+            .animation(pairingPhaseAnimation, value: model.pairingState)
+            .background { RemoteBackground() }
+            .navigationTitle("Pair with TV")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.large)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: finish)
                 }
+            }
         }
         .preferredColorScheme(.dark)
         .sensoryFeedback(trigger: model.pairingState) { _, newState in
@@ -66,87 +72,57 @@ struct PairingView: View {
         reduceMotion ? nil : .snappy(duration: 0.24)
     }
 
+    // MARK: - Content section driven by pairing state
+
     @ViewBuilder
-    private var content: some View {
+    private var contentSection: some View {
         switch model.pairingState {
         case .idle, .connecting:
-            connectingPhase
+            connectingSection
         case .waitingForCode:
-            codeEntry
+            codeEntrySection
                 .transition(pairingPhaseTransition)
         case .verifying:
-            verifyingPhase
+            verifyingSection
         case .paired:
-            pairedPhase
+            pairedSection
         case let .failed(message):
-            failedPhase(message)
+            failedSection(message)
         }
     }
 
-    private var connectingPhase: some View {
-        PairingPhaseLayout(
-            systemImage: "tv",
-            symbolColor: .secondary,
-            title: "Contacting \(deviceName)…",
-            subtitle: "Make sure the TV is awake and on the same Wi-Fi network."
-        ) {
-            ProgressView()
-                .controlSize(.large)
+    // MARK: - Connecting phase
+
+    private var connectingSection: some View {
+        Section {
+            HStack(spacing: 16) {
+                ProgressView()
+                    .controlSize(.regular)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Contacting \(deviceName)\u{2026}")
+                        .font(.body.weight(.semibold))
+                    Text("Make sure the TV is awake and on the same Wi-Fi network.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(minHeight: 56)
+            .transition(pairingPhaseTransition)
         }
-        .transition(pairingPhaseTransition)
     }
 
-    private var verifyingPhase: some View {
-        PairingPhaseLayout(
-            systemImage: "lock.shield",
-            symbolColor: .secondary,
-            title: "Checking the Code…",
-            subtitle: "Confirming the pairing with \(deviceName)."
-        ) {
-            ProgressView()
-                .controlSize(.large)
-        }
-        .transition(pairingPhaseTransition)
-    }
+    // MARK: - Code entry phase
 
-    private var pairedPhase: some View {
-        PairingPhaseLayout(
-            systemImage: "checkmark.seal.fill",
-            symbolColor: PultDesign.connected,
-            title: "Paired with \(deviceName)",
-            subtitle: "You're ready to take control."
-        ) {
-            Button("Done", systemImage: "checkmark", action: finish)
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .accessibilityHint("Closes pairing and returns to the remote.")
-        }
-        .transition(pairingPhaseTransition)
-    }
-
-    private func failedPhase(_ message: String) -> some View {
-        PairingPhaseLayout(
-            systemImage: "exclamationmark.triangle.fill",
-            symbolColor: PultDesign.warning,
-            title: "Pairing Didn't Finish",
-            subtitle: pairingFailureSubtitle(message)
-        ) {
-            PairingFailureRecovery(
-                retryPairing: retryPairing,
-                useManualIP: manualIPRecoveryAction
-            )
-        }
-        .transition(pairingPhaseTransition)
-    }
-
-    private var codeEntry: some View {
-        VStack(alignment: .leading, spacing: codeEntrySpacing) {
-            VStack(alignment: .leading, spacing: 8) {
+    private var codeEntrySection: some View {
+        Section {
+            // Header text + inline error
+            VStack(alignment: .leading, spacing: 6) {
                 Text("Enter the Code on Your TV")
                     .font(PultTypography.displaySmall)
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
+
                 if let codeError = model.pairingCodeError {
                     Label(codeError, systemImage: "exclamationmark.circle.fill")
                         .font(PultTypography.captionStrong)
@@ -167,38 +143,146 @@ struct PairingView: View {
                 }
             }
             .animation(pairingPhaseAnimation, value: model.pairingCodeError != nil)
+            .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 8, trailing: 16))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
 
+            // Code field
             PairingCodeField(code: $code, onComplete: submit)
                 .onChange(of: code) { _, _ in
                     if model.pairingCodeError != nil {
                         model.clearPairingCodeError()
                     }
                 }
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                .listRowSeparator(.hidden)
 
-            PairingCodeHelpRow()
+            // Help text
+            Label {
+                Text("Use letters A-F and numbers 0-9 exactly as shown. If the TV shows a new code, clear this one and enter the new code.")
+                    .font(PultTypography.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.leading)
+            } icon: {
+                Image(systemName: "textformat.123")
+                    .foregroundStyle(Color.pultAccent)
+            }
+            .labelStyle(.titleAndIcon)
+            .accessibilityElement(children: .combine)
+            .listRowSeparator(.hidden)
 
-            Button("Pair", systemImage: "link", action: submit)
-                .buttonStyle(.glassProminent)
-                .controlSize(.large)
-                .disabled(PairingCode(rawValue: code) == nil)
-                .accessibilityHint(pairButtonAccessibilityHint)
+            // Primary action
+            Button(action: submit) {
+                Label("Pair", systemImage: "link")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(PairingCode(rawValue: code) == nil)
+            .accessibilityHint(pairButtonAccessibilityHint)
+            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 16, trailing: 16))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
         }
-        .frame(maxWidth: 430, alignment: .leading)
-        .padding(18)
-        .pultContentSurface(
-            in: RoundedRectangle(cornerRadius: 28, style: .continuous),
-            tint: .pultAccent,
-            isProminent: true
-        )
     }
 
-    private var contentPadding: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 16 : 24
+    // MARK: - Verifying phase
+
+    private var verifyingSection: some View {
+        Section {
+            HStack(spacing: 16) {
+                ProgressView()
+                    .controlSize(.regular)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Checking the Code\u{2026}")
+                        .font(.body.weight(.semibold))
+                    Text("Confirming the pairing with \(deviceName).")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(minHeight: 56)
+        }
     }
 
-    private var codeEntrySpacing: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 20 : 28
+    // MARK: - Paired phase
+
+    private var pairedSection: some View {
+        Section {
+            VStack(spacing: 18) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 52))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(PultDesign.connected)
+                    .symbolEffect(.bounce, value: model.pairingState == .paired)
+                    .accessibilityHidden(true)
+
+                VStack(spacing: 6) {
+                    Text("Paired with \(deviceName)")
+                        .font(PultTypography.displaySmall)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.82)
+                    Text("You're ready to take control.")
+                        .font(PultTypography.bodySmall)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+
+                Button(action: finish) {
+                    Label("Done", systemImage: "checkmark")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityHint("Closes pairing and returns to the remote.")
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        }
+        .transition(pairingPhaseTransition)
     }
+
+    // MARK: - Failed phase
+
+    private func failedSection(_ message: String) -> some View {
+        Section {
+            VStack(spacing: 18) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 52))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(PultDesign.warning)
+                    .symbolEffect(.bounce, value: model.pairingState)
+                    .accessibilityHidden(true)
+
+                VStack(spacing: 6) {
+                    Text("Pairing Didn't Finish")
+                        .font(PultTypography.displaySmall)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.82)
+                    Text(pairingFailureSubtitle(message))
+                        .font(PultTypography.bodySmall)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(5)
+                        .minimumScaleFactor(0.82)
+                }
+
+                PairingFailureRecovery(
+                    retryPairing: retryPairing,
+                    useManualIP: manualIPRecoveryAction
+                )
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+        }
+        .transition(pairingPhaseTransition)
+    }
+
+    // MARK: - Helpers
 
     private var deviceName: String {
         model.selectedDevice?.name ?? "the TV"
@@ -241,59 +325,7 @@ struct PairingView: View {
     }
 }
 
-private struct PairingPhaseLayout<Accessory: View>: View {
-    var systemImage: String
-    var symbolColor: Color
-    var title: String
-    var subtitle: String
-    @ViewBuilder var accessory: Accessory
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        VStack(spacing: 18) {
-            phaseImage
-            VStack(spacing: 8) {
-                Text(title)
-                    .font(PultTypography.displaySmall)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(3)
-                    .minimumScaleFactor(0.82)
-                Text(subtitle)
-                    .font(PultTypography.bodySmall)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(5)
-                    .minimumScaleFactor(0.82)
-            }
-            accessory
-        }
-        .frame(maxWidth: 420)
-        .padding(20)
-        .pultContentSurface(
-            in: RoundedRectangle(cornerRadius: 28, style: .continuous),
-            tint: symbolColor,
-            isProminent: true
-        )
-    }
-
-    @ViewBuilder
-    private var phaseImage: some View {
-        let image = Image(systemName: systemImage)
-            .font(.system(size: 52))
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(symbolColor)
-
-        if reduceMotion {
-            image
-                .accessibilityHidden(true)
-        } else {
-            image
-                .symbolEffect(.bounce, value: title)
-                .accessibilityHidden(true)
-        }
-    }
-}
+// MARK: - Failure recovery
 
 private struct PairingFailureRecovery: View {
     var retryPairing: () -> Void
@@ -303,26 +335,23 @@ private struct PairingFailureRecovery: View {
         VStack(spacing: 16) {
             PairingRecoveryChecklist()
             VStack(spacing: 10) {
-                retryButton
+                Button(action: retryPairing) {
+                    Label("Try Again", systemImage: "arrow.clockwise")
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityHint("Starts a fresh pairing attempt with the selected TV.")
+
                 if let useManualIP {
-                    manualIPButton(useManualIP)
+                    Button(action: useManualIP) {
+                        Label("Use Manual IP", systemImage: "network")
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityHint("Opens manual address entry in case the TV address changed.")
                 }
             }
         }
-    }
-
-    private var retryButton: some View {
-        Button("Try Again", systemImage: "arrow.clockwise", action: retryPairing)
-            .buttonStyle(.glassProminent)
-            .controlSize(.large)
-            .accessibilityHint("Starts a fresh pairing attempt with the selected TV.")
-    }
-
-    private func manualIPButton(_ action: @escaping () -> Void) -> some View {
-        Button("Use Manual IP", systemImage: "network", action: action)
-            .buttonStyle(.glass)
-            .controlSize(.large)
-            .accessibilityHint("Opens manual address entry in case the TV address changed.")
     }
 }
 
@@ -363,11 +392,16 @@ private struct PairingRecoveryChecklist: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .pultContentSurface(
-            in: RoundedRectangle(cornerRadius: 18, style: .continuous),
-            tint: PultDesign.warning
-        )
+        .background {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(PultDesign.warning.opacity(0.12))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .stroke(PultDesign.warning.opacity(0.28), lineWidth: 1)
+                }
+        }
         .accessibilityElement(children: .contain)
     }
 }
@@ -379,21 +413,7 @@ private struct PairingRecoveryTip: Identifiable {
     var detail: String
 }
 
-private struct PairingCodeHelpRow: View {
-    var body: some View {
-        Label {
-            Text("Use letters A-F and numbers 0-9 exactly as shown. If the TV shows a new code, clear this one and enter the new code.")
-                .font(PultTypography.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.leading)
-        } icon: {
-            Image(systemName: "textformat.123")
-                .foregroundStyle(Color.pultAccent)
-        }
-        .labelStyle(.titleAndIcon)
-        .accessibilityElement(children: .combine)
-    }
-}
+// MARK: - Code field (unchanged logic, unchanged visuals)
 
 /// Six glass code boxes driven by a hidden text field, OTP-style.
 /// Tapping the boxes focuses the field; input is filtered to hex characters
