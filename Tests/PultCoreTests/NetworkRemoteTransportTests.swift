@@ -1,4 +1,5 @@
 import Foundation
+import Network
 import Testing
 @testable import PultCore
 
@@ -32,4 +33,45 @@ func refusedConnectionFailsInsteadOfHangingForever() async {
         #expect(thrown as? RemoteTransportError == .connectionFailed)
     }
     attempt.cancel()
+}
+
+/// A handshake to a peer that accepts TCP but never completes TLS must fail
+/// promptly (via the hard timeout, or an earlier TLS failure) rather than hang.
+/// This guards the no-hang contract for a connect() that can't reach `.ready`;
+/// the pure timeout path (sleeper -> cancelAll -> onCancel -> `.cancelled`
+/// -> resume) is additionally covered by reasoning in the design review.
+@Test
+func connectTimesOutWhenHandshakeStalls() async throws {
+    // Loopback TCP listener that accepts a connection and then does nothing —
+    // it never responds to the TLS ClientHello, so the client parks in
+    // `.preparing`.
+    let listener = try NWListener(using: .tcp)
+    nonisolated(unsafe) var accepted: [NWConnection] = []
+    listener.newConnectionHandler = { connection in
+        accepted.append(connection)
+        connection.start(queue: .global())
+    }
+    listener.start(queue: .global())
+
+    var resolvedPort: UInt16?
+    for _ in 0..<80 where resolvedPort == nil {
+        if let port = listener.port?.rawValue { resolvedPort = port }
+        try? await Task.sleep(for: .milliseconds(25))
+    }
+    let boundPort = try #require(resolvedPort, "listener never bound a port")
+
+    let transport = NetworkRemoteTransport(identityProvider: nil, connectTimeout: .milliseconds(300))
+    let started = ContinuousClock.now
+    var thrown: Error?
+    do {
+        try await transport.connect(to: "127.0.0.1", port: boundPort)
+    } catch {
+        thrown = error
+    }
+    let elapsed = ContinuousClock.now - started
+    listener.cancel()
+    await transport.close()
+
+    #expect(thrown as? RemoteTransportError == .connectionFailed)
+    #expect(elapsed < .seconds(3), "connect() should time out near 300ms, not hang")
 }

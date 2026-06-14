@@ -28,9 +28,14 @@ public actor NetworkRemoteTransport: RemoteTransport {
     private let queue = DispatchQueue(label: "app.pult.remote-transport", qos: .userInitiated)
     private let identityProvider: (any ClientIdentityProviding)?
     private let peerCertificate = PeerCertificateBox()
+    private let connectTimeout: Duration
 
-    public init(identityProvider: (any ClientIdentityProviding)? = KeychainClientIdentityStore.shared) {
+    public init(
+        identityProvider: (any ClientIdentityProviding)? = KeychainClientIdentityStore.shared,
+        connectTimeout: Duration = .seconds(8)
+    ) {
         self.identityProvider = identityProvider
+        self.connectTimeout = connectTimeout
     }
 
     public func connect(to host: String, port: UInt16) async throws {
@@ -69,34 +74,66 @@ public actor NetworkRemoteTransport: RemoteTransport {
         let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: parameters)
         self.connection = connection
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            let gate = ContinuationGate()
-            connection.stateUpdateHandler = { state in
-                switch state {
-                case .ready:
-                    gate.resume {
-                        continuation.resume()
-                    }
-                case .failed:
-                    gate.resume {
-                        continuation.resume(throwing: RemoteTransportError.connectionFailed)
-                    }
-                case .waiting:
-                    // Refused, unreachable, and policy-denied dials all land
-                    // here, and NWConnection then retries until the network
-                    // changes. For a LAN remote that means "the TV is not
-                    // reachable right now": fail fast so callers (lock-screen
-                    // intents especially) never suspend indefinitely; retry
-                    // policy lives in the session layer above.
-                    gate.resume {
+        let queue = self.queue
+        let connectTimeout = self.connectTimeout
+        do {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    // The continuation isn't cancellation-aware, so on task
+                    // cancellation (timeout, or an external close racing the
+                    // handshake) we cancel the NWConnection; its `.cancelled`
+                    // state then resumes the continuation below. Without this
+                    // the task group would deadlock awaiting a child that never
+                    // finishes.
+                    try await withTaskCancellationHandler {
+                        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                            let gate = ContinuationGate()
+                            connection.stateUpdateHandler = { state in
+                                switch state {
+                                case .ready:
+                                    gate.resume { continuation.resume() }
+                                case .failed, .cancelled:
+                                    // `.cancelled` happens when disconnect()/device
+                                    // switch closes the socket mid-handshake; resume
+                                    // so connect() can't hang forever.
+                                    gate.resume {
+                                        continuation.resume(throwing: RemoteTransportError.connectionFailed)
+                                    }
+                                case .waiting:
+                                    // Refused, unreachable, and policy-denied dials all
+                                    // land here, and NWConnection then retries until the
+                                    // network changes. For a LAN remote that means "the
+                                    // TV is not reachable right now": fail fast so callers
+                                    // (lock-screen intents especially) never suspend
+                                    // indefinitely; retry policy lives in the session
+                                    // layer above.
+                                    gate.resume {
+                                        connection.cancel()
+                                        continuation.resume(throwing: RemoteTransportError.connectionFailed)
+                                    }
+                                default:
+                                    break
+                                }
+                            }
+                            connection.start(queue: queue)
+                        }
+                    } onCancel: {
                         connection.cancel()
-                        continuation.resume(throwing: RemoteTransportError.connectionFailed)
                     }
-                default:
-                    break
                 }
+                group.addTask {
+                    // Hard ceiling: a handshake stalled in `.preparing` never
+                    // fires .ready/.failed/.waiting, so without this it could
+                    // hang past the session's configure timeout.
+                    try await Task.sleep(for: connectTimeout)
+                    throw RemoteTransportError.connectionFailed
+                }
+                defer { group.cancelAll() }
+                try await group.next()
             }
-            connection.start(queue: queue)
+        } catch {
+            connection.cancel()
+            throw error
         }
     }
 
