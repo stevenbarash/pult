@@ -203,72 +203,31 @@ struct ConnectingBanner: View {
     }
 }
 
+/// A minimal one-line connection status indicator — a quiet dot + label.
+/// The TV name lives in the navigation bar; no IP/host, no validation, no
+/// signal bars. This intentionally mirrors the calm chrome of Apple's Control
+/// Center remote.
 struct RemoteStatusHeader: View {
     let device: DeviceRecord?
     let state: ConnectionState
     let isPaired: Bool
-    let validationClaimState: DeviceValidationClaimState
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let validationClaimState: DeviceValidationClaimState   // accepted but not rendered here
 
     var body: some View {
         let presentation = RemoteConnectionPresentation(state: state, isPaired: isPaired)
 
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(device?.name ?? "No TV Selected")
-                    .font(PultTypography.subhead)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-                Text(presentation.detail(host: device?.host))
-                    .font(PultTypography.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
-                    .minimumScaleFactor(0.82)
-
-                if !dynamicTypeSize.isAccessibilitySize {
-                    PultStatusChip(
-                        title: validationPresentation.title,
-                        systemImage: validationPresentation.systemImage,
-                        tint: validationPresentation.tint
-                    )
-                    .frame(maxWidth: 200, alignment: .leading)
-                    .padding(.top, 2)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            VStack(alignment: .trailing, spacing: 8) {
-                // Connection state pill — sage = live, danger = failed,
-                // muted gold = connecting/unpaired, secondary = disconnected.
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(presentation.tint)
-                        .frame(width: 7, height: 7)
-                    Text(presentation.title)
-                        .font(PultTypography.captionStrong)
-                        .foregroundStyle(presentation.tint)
-                        .lineLimit(1)
-                }
-
-                if !dynamicTypeSize.isAccessibilitySize {
-                    RemoteConnectionMeter(
-                        tint: presentation.tint,
-                        isActive: presentation.isActive,
-                        isAnimating: presentation.isAnimating && !reduceMotion
-                    )
-                }
-            }
+        HStack(spacing: 5) {
+            Circle()
+                .fill(presentation.tint)
+                .frame(width: 6, height: 6)
+            Text(presentation.title)
+                .font(PultTypography.captionStrong)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
-        .padding(.horizontal, 2)
-        .accessibilityValue(validationPresentation.title)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-    }
-
-    private var validationPresentation: RemoteValidationPresentation {
-        RemoteValidationPresentation(claimState: validationClaimState)
+        .accessibilityLabel("Status: \(presentation.title)")
     }
 }
 
@@ -350,38 +309,3 @@ private struct RemoteConnectionPresentation {
     }
 }
 
-private struct RemoteConnectionMeter: View {
-    var tint: Color
-    var isActive: Bool
-    var isAnimating: Bool
-
-    @State private var pulse = false
-
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 3) {
-            ForEach(0..<3, id: \.self) { index in
-                Capsule()
-                    .fill(tint.opacity(isActive || isAnimating ? 0.90 : 0.32))
-                    .frame(width: 4, height: CGFloat(9 + (index * 5)))
-                    .scaleEffect(x: 1, y: barScale(index), anchor: .bottom)
-            }
-        }
-        .frame(width: 24, height: 26)
-        .accessibilityHidden(true)
-        .onAppear {
-            pulse = isAnimating
-        }
-        .onChange(of: isAnimating) { _, newValue in
-            pulse = newValue
-        }
-        .animation(
-            isAnimating ? .easeInOut(duration: 0.82).repeatForever(autoreverses: true) : .snappy(duration: 0.18),
-            value: pulse
-        )
-    }
-
-    private func barScale(_ index: Int) -> CGFloat {
-        guard isAnimating, pulse else { return 1 }
-        return max(0.48, 0.72 - (CGFloat(index) * 0.09))
-    }
-}

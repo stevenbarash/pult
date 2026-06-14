@@ -469,9 +469,10 @@ struct GlassShapeButtonStyle<S: Shape>: ButtonStyle {
     }
 }
 
-/// A calm, native-feeling circular button style: a visible but restrained
-/// material backing (surfaceRaised tint + subtle hairline ring) so buttons
-/// read clearly as tappable at a glance, with a gentle press scale.
+/// Solid frosted circular button style — Apple TV Remote inspired.
+/// A clearly-filled translucent disc (not a thin ring on transparent) so
+/// buttons read as physical objects at a glance, with a gentle press scale.
+/// In reduce-transparency mode, falls back to an opaque near-black fill.
 private struct NativeCircleButtonStyle: ButtonStyle {
     var size: CGFloat
 
@@ -486,26 +487,29 @@ private struct NativeCircleButtonStyle: ButtonStyle {
             .scaleEffect(pressed ? 0.91 : 1)
             .animation(reduceMotion ? nil : .snappy(duration: 0.14), value: pressed)
             .background {
-                Circle()
-                    .fill(
-                        reduceTransparency
-                            ? PultDesign.carbonMid
-                            : PultDesign.surfaceRaised
-                    )
-                    .opacity(pressed ? 0.72 : 1)
-                    .allowsHitTesting(false)
-            }
-            .overlay {
-                if !reduceTransparency {
+                if reduceTransparency {
                     Circle()
-                        .stroke(
-                            PultDesign.hairlineStrong.opacity(
-                                colorSchemeContrast == .increased ? 0.56 : 1
-                            ),
-                            lineWidth: colorSchemeContrast == .increased ? 1.5 : 1
-                        )
+                        .fill(PultDesign.carbonMid)
+                        .opacity(pressed ? 0.72 : 1)
+                        .allowsHitTesting(false)
+                } else {
+                    // Solid frosted disc: a visible white fill at ~14 % opacity
+                    // on the near-black canvas produces a clearly lighter circle
+                    // that reads like the buttons on Apple's physical remote.
+                    Circle()
+                        .fill(Color.white.opacity(pressed ? 0.10 : 0.14))
                         .allowsHitTesting(false)
                 }
+            }
+            .overlay {
+                Circle()
+                    .stroke(
+                        Color.white.opacity(
+                            colorSchemeContrast == .increased ? 0.40 : 0.18
+                        ),
+                        lineWidth: colorSchemeContrast == .increased ? 1.5 : 0.5
+                    )
+                    .allowsHitTesting(false)
             }
     }
 }
