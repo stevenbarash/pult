@@ -108,19 +108,28 @@ private struct PultFeatureList: View {
 private struct PultFeatureRow: View {
     let feature: OnboardingFeature
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            // Preferred: symbol on left, text stacked to right
-            HStack(alignment: .top, spacing: 20) {
-                symbolView
-                textStack
-            }
-            // Accessibility size fallback: stack vertically
-            VStack(alignment: .leading, spacing: 12) {
-                symbolView
-                textStack
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                // At accessibility sizes the symbol moves above the text so it
+                // stays legible and the text gets the full width.
+                VStack(alignment: .leading, spacing: 12) {
+                    symbolView
+                    textStack
+                }
+            } else {
+                // Apple onboarding pattern: symbol on the left, vertically
+                // aligned with the title, text wrapping to the right.
+                HStack(alignment: .top, spacing: 16) {
+                    symbolView
+                        .padding(.top, 2)
+                    textStack
+                }
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(feature.title). \(feature.description)")
     }
@@ -128,9 +137,9 @@ private struct PultFeatureRow: View {
     private var symbolView: some View {
         Image(systemName: feature.systemImage)
             .symbolRenderingMode(.hierarchical)
-            .font(.system(size: 30, weight: .regular))
+            .font(.system(size: 26, weight: .regular))
             .foregroundStyle(PultDesign.accent)
-            .frame(width: 36, height: 36, alignment: .center)
+            .frame(width: 32, alignment: .center)
             .accessibilityHidden(true)
     }
 
@@ -145,5 +154,6 @@ private struct PultFeatureRow: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
