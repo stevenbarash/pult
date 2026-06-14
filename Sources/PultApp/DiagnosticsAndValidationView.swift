@@ -154,6 +154,12 @@ struct DiagnosticsAndValidationView: View {
                 } footer: {
                     Text("These checks are for physical iPhone plus Google TV validation. Passing local builds alone does not prove end-to-end TV behavior.")
                 }
+
+                Section {
+                    Text("Pult is not affiliated with or endorsed by Google. Google TV and Android TV are trademarks of Google LLC.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
             .navigationTitle("Diagnostics")
             .scrollContentBackground(.hidden)
