@@ -7,8 +7,10 @@ struct RemoteLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RemoteSessionAttributes.self) { context in
             LockScreenRemoteView(context: context)
-                .activityBackgroundTint(Color.black.opacity(0.55))
-                .activitySystemActionForegroundColor(.white)
+                // Near-black #0A0A09 at 0.85 opacity — matches the app canvas
+                // while still letting the Lock Screen blurred glass show through.
+                .activityBackgroundTint(Color(red: 10.0 / 255.0, green: 10.0 / 255.0, blue: 9.0 / 255.0).opacity(0.85))
+                .activitySystemActionForegroundColor(Color(red: 250.0 / 255.0, green: 250.0 / 255.0, blue: 247.0 / 255.0))
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {

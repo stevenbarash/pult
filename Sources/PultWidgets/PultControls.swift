@@ -5,10 +5,13 @@ import SwiftUI
 import WidgetKit
 
 extension Color {
-    static let pultWidgetAccent = Color(red: 86.0 / 255.0, green: 214.0 / 255.0, blue: 201.0 / 255.0)
-    static let pultWidgetWarning = Color(red: 242.0 / 255.0, green: 166.0 / 255.0, blue: 93.0 / 255.0)
-    static let pultWidgetConnected = Color(red: 123.0 / 255.0, green: 217.0 / 255.0, blue: 154.0 / 255.0)
-    static let pultWidgetDanger = Color(red: 255.0 / 255.0, green: 106.0 / 255.0, blue: 99.0 / 255.0)
+    // Editorial Calm palette — sage accent on near-black canvas.
+    // These mirror PultDesign tokens in the app target (which cannot be
+    // imported here) so the widget surface reads as the same visual family.
+    static let pultWidgetAccent = Color(red: 157.0 / 255.0, green: 179.0 / 255.0, blue: 154.0 / 255.0)   // sage  #9DB39A
+    static let pultWidgetWarning = Color(red: 200.0 / 255.0, green: 169.0 / 255.0, blue: 106.0 / 255.0)  // muted gold  #C8A96A
+    static let pultWidgetConnected = Color(red: 157.0 / 255.0, green: 179.0 / 255.0, blue: 154.0 / 255.0) // sage  #9DB39A
+    static let pultWidgetDanger = Color(red: 217.0 / 255.0, green: 140.0 / 255.0, blue: 128.0 / 255.0)   // muted coral  #D98C80
 }
 
 /// The hero control for a Lock Screen slot or the Action button: one press
