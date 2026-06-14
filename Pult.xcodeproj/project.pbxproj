@@ -55,7 +55,6 @@
 		010000000000000000000046 /* DiagnosticsAndValidationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000144 /* DiagnosticsAndValidationView.swift */; };
 		010000000000000000000047 /* RemoteDiagnosticsFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000145 /* RemoteDiagnosticsFormatting.swift */; };
 		010000000000000000000048 /* ConnectionStatusControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000146 /* ConnectionStatusControl.swift */; };
-		010000000000000000000053 /* RemoteMockupEditorial.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000153 /* RemoteMockupEditorial.swift */; };
 		010000000000000000000049 /* RemoteControlPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000147 /* RemoteControlPresentation.swift */; };
 		010000000000000000000050 /* RemoteDPadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000148 /* RemoteDPadView.swift */; };
 		010000000000000000000051 /* RemoteHardwareInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000149 /* RemoteHardwareInput.swift */; };
@@ -163,7 +162,6 @@
 		010000000000000000000148 /* RemoteDPadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteDPadView.swift; sourceTree = "<group>"; };
 		010000000000000000000149 /* RemoteHardwareInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteHardwareInput.swift; sourceTree = "<group>"; };
 		010000000000000000000150 /* RemoteSurfaceStatusViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteSurfaceStatusViews.swift; sourceTree = "<group>"; };
-		010000000000000000000153 /* RemoteMockupEditorial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteMockupEditorial.swift; sourceTree = "<group>"; };
 		010000000000000000000151 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Supporting/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
 		010000000000000000000152 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Supporting/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
 		010000000000000000000201 /* Pult.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pult.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -243,7 +241,6 @@
 				010000000000000000000148 /* RemoteDPadView.swift */,
 				010000000000000000000149 /* RemoteHardwareInput.swift */,
 				010000000000000000000150 /* RemoteSurfaceStatusViews.swift */,
-				010000000000000000000153 /* RemoteMockupEditorial.swift */,
 				010000000000000000000103 /* AddDeviceView.swift */,
 				010000000000000000000104 /* TextEntryView.swift */,
 				010000000000000000000105 /* RemoteIntents.swift */,
@@ -444,7 +441,6 @@
 				010000000000000000000046 /* DiagnosticsAndValidationView.swift in Sources */,
 				010000000000000000000047 /* RemoteDiagnosticsFormatting.swift in Sources */,
 				010000000000000000000048 /* ConnectionStatusControl.swift in Sources */,
-				010000000000000000000053 /* RemoteMockupEditorial.swift in Sources */,
 				010000000000000000000029 /* PairingView.swift in Sources */,
 				010000000000000000000030 /* RemoteControls.swift in Sources */,
 				010000000000000000000031 /* TouchpadView.swift in Sources */,

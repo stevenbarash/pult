@@ -33,37 +33,46 @@ extension Color {
     static let pultAccent = PultDesign.accent
 }
 
+// Editorial Calm direction: a quiet, type-led system on a near-black warm
+// canvas with a single muted sage accent. Restraint over decoration —
+// hairlines instead of cards, whitespace instead of fills.
 enum PultDesign {
-    static let accent = Color(hex: "56D6C9")
-    static let accentDeep = Color(hex: "178CA3")
-    static let accentSoft = Color(hex: "D9FFF7")
-    static let connected = Color(hex: "7BD99A")
-    static let warning = Color(hex: "F2A65D")
-    static let danger = Color(hex: "FF6A63")
-    static let utility = Color(hex: "9FB8D9")
+    static let accent = Color(hex: "9DB39A")       // muted sage
+    static let accentDeep = Color(hex: "6E8A78")   // deeper sage
+    static let accentSoft = Color(hex: "DCE6DD")   // pale sage
+    static let connected = Color(hex: "9DB39A")    // calm sage = live/connected
+    static let warning = Color(hex: "C8A96A")      // muted gold, review states only
+    static let danger = Color(hex: "D98C80")       // muted coral, never decorative
+    static let utility = Color(hex: "8E9AA0")      // muted slate, volume/media
 
-    static let carbonTop = Color(hex: "101416")
-    static let carbonMid = Color(hex: "171D20")
-    static let carbonBottom = Color(hex: "070A0C")
-    static let warmInk = Color(hex: "F4FAF8")
-    static let mutedInk = Color(hex: "AAB8B5")
+    // Near-black warm-neutral canvas; the gradient is barely-there by design.
+    static let carbonTop = Color(hex: "0C0C0B")
+    static let carbonMid = Color(hex: "0A0A09")
+    static let carbonBottom = Color(hex: "060605")
+    static let warmInk = Color(hex: "FAFAF7")
+    static let mutedInk = Color(hex: "8E8E88")
 
-    static let surface = Color.white.opacity(0.10)
-    static let surfaceRaised = Color.white.opacity(0.16)
-    static let surfaceStrong = Color.white.opacity(0.24)
-    static let hairline = Color.white.opacity(0.14)
-    static let hairlineStrong = Color.white.opacity(0.28)
+    static let surface = Color.white.opacity(0.05)
+    static let surfaceRaised = Color.white.opacity(0.08)
+    static let surfaceStrong = Color.white.opacity(0.12)
+    static let hairline = Color.white.opacity(0.10)
+    static let hairlineStrong = Color.white.opacity(0.20)
 }
 
+// Editorial type: a large, light New York serif carries the hierarchy;
+// SF Pro handles small labels. Light/regular serif weights read calmer than
+// bold on a dark canvas.
 enum PultTypography {
-    static let display = Font.system(.largeTitle, design: .serif).weight(.bold)
-    static let displaySmall = Font.system(.title2, design: .serif).weight(.bold)
-    static let heading = Font.title3.weight(.semibold)
-    static let subhead = Font.headline.weight(.semibold)
+    static let display = Font.system(.largeTitle, design: .serif).weight(.regular)
+    static let displaySmall = Font.system(.title, design: .serif).weight(.regular)
+    static let heading = Font.title3.weight(.medium)
+    static let subhead = Font.headline.weight(.medium)
     static let body = Font.body
     static let bodySmall = Font.callout
     static let caption = Font.caption
     static let captionStrong = Font.caption.weight(.semibold)
+    /// Small all-caps label with tracking — the editorial caption voice.
+    static let label = Font.caption.weight(.semibold)
 }
 
 enum PultSpacing {
@@ -544,92 +553,20 @@ struct HoldRepeatKeyZone: View {
     }
 }
 
-/// The quiet app-wide backdrop behind the remote surface.
+/// The quiet app-wide backdrop. Editorial Calm keeps it near-flat and dark —
+/// no decorative scanlines or accent washes; the type and whitespace carry the
+/// design, not the background.
 struct RemoteBackground: View {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
-
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    PultDesign.carbonTop,
-                    PultDesign.carbonMid,
-                    PultDesign.carbonBottom
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            if !reduceTransparency {
-                PultSignalField()
-                    .opacity(colorSchemeContrast == .increased ? 0.18 : 0.32)
-
-                LinearGradient(
-                    colors: [
-                        PultDesign.accentDeep.opacity(0.28),
-                        Color.clear,
-                        PultDesign.utility.opacity(0.12)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            }
-
-            LinearGradient(
-                colors: [
-                    Color.clear,
-                    PultDesign.accent.opacity(0.08)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        }
+        LinearGradient(
+            colors: [
+                PultDesign.carbonTop,
+                PultDesign.carbonMid,
+                PultDesign.carbonBottom
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
         .ignoresSafeArea()
-    }
-}
-
-private struct PultSignalField: View {
-    var body: some View {
-        Canvas { context, size in
-            let base = min(size.width, size.height)
-            let center = CGPoint(x: size.width * 0.64, y: size.height * 0.24)
-            var rings = Path()
-
-            for index in 0..<6 {
-                let diameter = base * (0.30 + CGFloat(index) * 0.18)
-                let rect = CGRect(
-                    x: center.x - diameter / 2,
-                    y: center.y - diameter / 2,
-                    width: diameter,
-                    height: diameter
-                )
-                rings.addEllipse(in: rect)
-            }
-
-            context.stroke(
-                rings,
-                with: .color(PultDesign.accent.opacity(0.10)),
-                style: StrokeStyle(lineWidth: 1, dash: [2, 11], dashPhase: 3)
-            )
-
-            var scanlines = Path()
-            let stride: CGFloat = 42
-            var y: CGFloat = -size.height * 0.08
-            while y < size.height * 1.10 {
-                scanlines.move(to: CGPoint(x: -size.width * 0.08, y: y))
-                scanlines.addLine(to: CGPoint(x: size.width * 1.08, y: y + size.width * 0.18))
-                y += stride
-            }
-
-            context.stroke(
-                scanlines,
-                with: .color(PultDesign.utility.opacity(0.08)),
-                style: StrokeStyle(lineWidth: 1)
-            )
-        }
-        .blendMode(.screen)
-        .accessibilityHidden(true)
-        .allowsHitTesting(false)
     }
 }
