@@ -293,6 +293,7 @@ struct RemoteControlSurface: View {
 
     private enum BannerKind: Equatable {
         case commandFailure(RemoteCommandFailure)
+        case connecting(String)
         case disconnected
         case failure(String)
         case unpaired
@@ -306,6 +307,11 @@ struct RemoteControlSurface: View {
         }
         if let commandFailure {
             return .commandFailure(commandFailure)
+        }
+        if connectionState == .connecting {
+            let name = device?.name ?? ""
+            let message = name.isEmpty ? "Connecting…" : "Connecting to \(name)…"
+            return .connecting(message)
         }
         if connectionState == .disconnected {
             return .disconnected
@@ -337,6 +343,9 @@ struct RemoteControlSurface: View {
                     onManualIP: onManualIP
                 )
                 .transition(statusBannerTransition)
+            case let .connecting(message):
+                ConnectingBanner(message: message)
+                    .transition(statusBannerTransition)
             case .disconnected:
                 StatusBanner(
                     systemImage: "powerplug",

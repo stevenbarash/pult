@@ -173,6 +173,33 @@ struct StatusBanner: View {
     }
 }
 
+struct ConnectingBanner: View {
+    var message: String
+
+    var body: some View {
+        let tint = Color.pultAccent
+        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+
+        HStack(spacing: 10) {
+            ProgressView()
+                .progressViewStyle(.circular)
+                .controlSize(.small)
+                .tint(tint)
+                .accessibilityHidden(true)
+            Text(message)
+                .font(PultTypography.bodySmall)
+                .lineLimit(3)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .pultContentSurface(in: shape, tint: tint, isProminent: true)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(message)
+    }
+}
+
 struct RemoteStatusHeader: View {
     let device: DeviceRecord?
     let state: ConnectionState
