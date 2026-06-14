@@ -59,20 +59,20 @@ enum PultDesign {
     static let hairlineStrong = Color.white.opacity(0.20)
 }
 
-// Editorial type: a large, light New York serif carries the hierarchy;
-// SF Pro handles small labels. Light/regular serif weights read calmer than
-// bold on a dark canvas.
+// Native Apple voice: SF Pro throughout with the system text styles and bold
+// large titles, the way first-party iOS apps read. Dynamic Type comes for free
+// because these are relative styles.
 enum PultTypography {
-    static let display = Font.system(.largeTitle, design: .serif).weight(.regular)
-    static let displaySmall = Font.system(.title, design: .serif).weight(.regular)
-    static let heading = Font.title3.weight(.medium)
-    static let subhead = Font.headline.weight(.medium)
+    static let display = Font.system(.largeTitle).weight(.bold)
+    static let displaySmall = Font.system(.title).weight(.bold)
+    static let heading = Font.title3.weight(.semibold)
+    static let subhead = Font.headline
     static let body = Font.body
     static let bodySmall = Font.callout
     static let caption = Font.caption
     static let captionStrong = Font.caption.weight(.semibold)
-    /// Small all-caps label with tracking — the editorial caption voice.
-    static let label = Font.caption.weight(.semibold)
+    /// Small uppercased label with tracking — section-header voice.
+    static let label = Font.footnote.weight(.semibold)
 }
 
 enum PultSpacing {
