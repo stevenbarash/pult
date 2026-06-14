@@ -280,7 +280,7 @@ struct RemoteControlSurface: View {
                 .opacity(controlsAreEnabled ? 1 : 0.46)
 
             if includesSecondaryCluster {
-                // Primary control cluster: back/home/mic/kbd/power
+                // Primary control row: back / home / mic / keyboard (power → toolbar)
                 utilityRow(layout: layout)
                     .disabled(!controlsAreEnabled)
                     .opacity(controlsAreEnabled ? 1 : 0.46)
@@ -292,13 +292,15 @@ struct RemoteControlSurface: View {
                 .opacity(controlsAreEnabled ? 1 : 0.46)
 
             if includesSecondaryCluster {
-                // Secondary actions: search + favorite apps
-                primaryActionRow
+                // Media transport: rewind / play-pause / forward
+                mediaRow(layout: layout)
                     .disabled(!controlsAreEnabled)
                     .opacity(controlsAreEnabled ? 1 : 0.46)
 
-                // Media transport: rewind / play-pause / forward
-                mediaRow(layout: layout)
+                // Compact secondary row: Search TV + Favorite Apps side-by-side.
+                // Merged into one visual group to reduce cluster count and keep
+                // the layout calmer — less stacking, more breathing room.
+                searchAndFavoritesRow
                     .disabled(!controlsAreEnabled)
                     .opacity(controlsAreEnabled ? 1 : 0.46)
             }
@@ -450,19 +452,26 @@ struct RemoteControlSurface: View {
         }
     }
 
-    /// Hero touch surface: a clearly-lighter frosted area that dominates the
+    /// Hero touch surface: a clearly-lighter frosted panel that dominates the
     /// screen and obviously invites swiping — like the large pad on Apple's
-    /// physical TV remote. Real SwiftUI material (.regularMaterial) gives the
-    /// surface authentic vitreous depth; the hairline stroke anchors the edge.
+    /// physical TV remote. The material base plus a white overlay at 0.12
+    /// opacity gives the surface a perceptible lift against the near-black
+    /// canvas so it reads as an inviting, light touch zone.
     private var touchpadSurface: some View {
         let shape = RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius, style: .continuous)
         return TouchpadView(send: sendKey)
             .background {
-                // Genuine material fill — reads as frosted glass on the dark
-                // canvas; significantly more inviting than a flat opacity tint.
-                shape
-                    .fill(.regularMaterial)
-                    .allowsHitTesting(false)
+                // Material base provides the blur/frost; the white overlay
+                // at 0.12 lifts the surface visibly above the near-black
+                // background — matching the Apple TV Remote's lighter pad.
+                ZStack {
+                    shape
+                        .fill(.regularMaterial)
+                        .allowsHitTesting(false)
+                    shape
+                        .fill(Color.white.opacity(0.12))
+                        .allowsHitTesting(false)
+                }
             }
             .overlay {
                 shape
@@ -544,9 +553,12 @@ struct RemoteControlSurface: View {
     private func commandCluster(layout: RemoteSurfaceLayout) -> some View {
         GlassEffectContainer(spacing: 10) {
             VStack(alignment: .leading, spacing: RemoteMetrics.clusterSpacing + 2) {
+                // Back / home / mic / keyboard (power → toolbar)
                 utilityRow(layout: layout)
-                primaryActionRow
+                // Media transport: rewind / play-pause / forward
                 mediaRow(layout: layout)
+                // Merged search + favorites in one compact row
+                searchAndFavoritesRow
             }
             .padding(14)
             .pultContentSurface(
@@ -577,6 +589,25 @@ struct RemoteControlSurface: View {
         }
     }
 
+    /// Merged compact row — Search TV and Favorite Apps side-by-side in a
+    /// single visual band. Reduces the number of stacked clusters, making
+    /// the layout calmer and more similar to Apple's Control Center remote.
+    /// Accessibility size falls back to stacked layout for legibility.
+    @ViewBuilder
+    private var searchAndFavoritesRow: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(spacing: PultSpacing.xs) {
+                searchButton
+                launcherButton
+            }
+        } else {
+            HStack(spacing: PultSpacing.xs) {
+                searchButton
+                launcherButton
+            }
+        }
+    }
+
     private var launcherButton: some View {
         Button(action: onFavoriteApps) {
             HStack(spacing: 10) {
@@ -600,8 +631,9 @@ struct RemoteControlSurface: View {
     }
 
     private func utilityRow(layout: RemoteSurfaceLayout) -> some View {
-        // Compact uses a slightly larger tap target for the utility row to
-        // match Apple TV Remote proportions; wide sidebar can stay tighter.
+        // Clean 4-button row: back / home / mic / keyboard.
+        // Power has moved to the navigation toolbar (top-right) — Apple's
+        // convention for the power/eject control in the Control Center remote.
         let keySize: CGFloat = layout.isWide ? 48 : 52
         let keySpacing: CGFloat = layout.isWide ? 8 : 14
 
@@ -611,9 +643,6 @@ struct RemoteControlSurface: View {
             // All glyphs neutral at rest — sage accent only on press/active state.
             RemoteCircleButton(systemImage: "mic.fill", label: "Voice search", size: keySize) { sendKey(.voiceSearch) }
             RemoteCircleButton(systemImage: "keyboard", label: "Text input", size: keySize, action: onTextEntry)
-            // Power: neutral primary glyph; danger color reserved for
-            // the command-echo tint, not the button itself.
-            RemoteCircleButton(systemImage: "power", label: "Power", size: keySize) { sendKey(.power) }
         }
         .frame(maxWidth: .infinity)
     }

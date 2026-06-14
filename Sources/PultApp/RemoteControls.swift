@@ -470,10 +470,10 @@ struct GlassShapeButtonStyle<S: Shape>: ButtonStyle {
 }
 
 /// Frosted circular button style — Apple TV Remote inspired.
-/// Uses genuine SwiftUI material (.regularMaterial) so the disc reads as
-/// real vitreous glass on the dark canvas, not a flat gray fill. The hairline
-/// stroke on top anchors the edge without heaviness.
-/// In reduce-transparency mode, falls back to an opaque near-black fill.
+/// Uses genuine SwiftUI material (.regularMaterial) layered with a bright
+/// white overlay so the disc reads clearly as a raised, tappable element
+/// against the near-black canvas — noticeably lighter than the background.
+/// In reduce-transparency mode, falls back to an opaque mid-gray fill.
 private struct NativeCircleButtonStyle: ButtonStyle {
     var size: CGFloat
 
@@ -489,25 +489,31 @@ private struct NativeCircleButtonStyle: ButtonStyle {
             .animation(reduceMotion ? nil : .snappy(duration: 0.14), value: pressed)
             .background {
                 if reduceTransparency {
-                    // High-contrast: opaque near-black disc, no blur.
+                    // High-contrast: a clearly-visible mid-gray disc, no blur.
                     Circle()
-                        .fill(PultDesign.carbonMid)
+                        .fill(Color.white.opacity(0.22))
                         .opacity(pressed ? 0.72 : 1)
                         .allowsHitTesting(false)
                 } else {
-                    // Real SwiftUI material — frosted glass, adapts to the
-                    // background blur context, reads clearly as a raised disc.
-                    Circle()
-                        .fill(.regularMaterial)
-                        .opacity(pressed ? 0.78 : 1)
-                        .allowsHitTesting(false)
+                    // Material base + bright white overlay for a perceptible
+                    // lift against the near-black canvas — matches Apple TV
+                    // Remote button lightness vs. background.
+                    ZStack {
+                        Circle()
+                            .fill(.regularMaterial)
+                            .allowsHitTesting(false)
+                        Circle()
+                            .fill(Color.white.opacity(pressed ? 0.10 : 0.18))
+                            .allowsHitTesting(false)
+                    }
+                    .opacity(pressed ? 0.78 : 1)
                 }
             }
             .overlay {
                 Circle()
                     .stroke(
                         Color.white.opacity(
-                            colorSchemeContrast == .increased ? 0.40 : 0.18
+                            colorSchemeContrast == .increased ? 0.48 : 0.24
                         ),
                         lineWidth: colorSchemeContrast == .increased ? 1.5 : 0.5
                     )

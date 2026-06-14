@@ -113,13 +113,14 @@ struct TouchpadView: View {
 
     private var touchpadTexture: some View {
         ZStack {
-            // Clean, near-flat fill — the glass effect above provides the
-            // material quality; this just anchors the surface visually.
+            // White overlay reinforces the lightness set by the material
+            // backing in touchpadSurface — the inner layer cooperates with
+            // the outer background to produce the visible lift.
             RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius, style: .continuous)
-                .fill(PultDesign.surface.opacity(0.60))
+                .fill(Color.white.opacity(0.06))
             // Single inner accent ring to signal the interactive zone.
             RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius - 10, style: .continuous)
-                .stroke(PultDesign.accent.opacity(0.12), lineWidth: 1)
+                .stroke(PultDesign.accent.opacity(0.14), lineWidth: 1)
                 .padding(20)
         }
         .accessibilityHidden(true)

@@ -43,15 +43,20 @@ private struct DPadDial: View {
 
     var body: some View {
         ZStack {
-            // Real SwiftUI material backing — the d-pad ring reads as a frosted
-            // disc, matching the authentic vitreous quality of the touchpad.
-            // Reduce-transparency fallback: opaque flat fill instead of blur.
+            // Material base + white overlay so the d-pad ring reads as
+            // clearly lighter than the near-black canvas — consistent
+            // lightness with the touchpad hero surface.
+            // Reduce-transparency fallback: opaque brighter fill.
             if reduceTransparency {
                 Circle()
-                    .fill(PultDesign.surfaceRaised)
+                    .fill(Color.white.opacity(0.18))
             } else {
-                Circle()
-                    .fill(.regularMaterial)
+                ZStack {
+                    Circle()
+                        .fill(.regularMaterial)
+                    Circle()
+                        .fill(Color.white.opacity(0.12))
+                }
             }
             Circle()
                 .stroke(PultDesign.hairlineStrong, lineWidth: 1)

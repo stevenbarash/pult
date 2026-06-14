@@ -48,6 +48,18 @@ struct RemoteRootView: View {
                                 onPair: presentPairing
                             )
                         }
+                        // Power lives here — Apple's Control Center remote
+                        // places the power button in the top-right corner of
+                        // the remote UI. Rightmost trailing item.
+                        ToolbarItem(placement: .primaryAction) {
+                            Button {
+                                send(.power)
+                            } label: {
+                                Image(systemName: "power")
+                            }
+                            .accessibilityLabel("Power")
+                            .accessibilityHint("Sends the power command to the selected TV.")
+                        }
                     }
                 }
         }
