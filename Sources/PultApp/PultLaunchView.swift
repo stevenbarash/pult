@@ -6,176 +6,144 @@ struct PultWelcomeEmptyState: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: 0) {
+        GeometryReader { proxy in
+            ScrollView(.vertical) {
+                VStack(spacing: 0) {
+                    // ── Top breathing room ───────────────────────────────────
+                    Spacer()
+                        .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 32 : 56)
 
-                // ── Brand label ──────────────────────────────────────────
-                HStack(spacing: 6) {
-                    Rectangle()
-                        .fill(PultDesign.accent.opacity(0.70))
-                        .frame(width: 20, height: 1)
-                    Text("PULT · GOOGLE TV REMOTE")
-                        .font(PultTypography.label)
-                        .foregroundStyle(PultDesign.accent)
-                        .kerning(1.2)
-                        .textCase(.uppercase)
-                }
-                .accessibilityLabel("Pult — Google TV Remote")
+                    // ── Title + subtitle ─────────────────────────────────────
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Your TV, finally native.")
+                            .font(PultTypography.display)
+                            .foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
 
-                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 20 : 16)
+                        Text("A fast, native remote for Google TV.")
+                            .font(PultTypography.body)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
 
-                // ── Hero headline ────────────────────────────────────────
-                Text("Your TV,\nfinally native.")
-                    .font(PultTypography.display)
-                    .foregroundStyle(PultDesign.warmInk)
-                    .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                        .frame(height: dynamicTypeSize.isAccessibilitySize ? 48 : 56)
 
-                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 18 : 14)
+                    // ── Feature rows ─────────────────────────────────────────
+                    PultFeatureList()
 
-                // ── Value proposition ────────────────────────────────────
-                Text("Pair once, then drive the living room from the remote, keyboard, app launcher, Lock Screen, Control Center, Siri, and Shortcuts.")
-                    .font(PultTypography.body)
-                    .foregroundStyle(PultDesign.warmInk.opacity(0.50))
-                    .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                        .frame(minHeight: dynamicTypeSize.isAccessibilitySize ? 40 : 52)
 
-                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 36 : 28)
-
-                // ── Hairline ─────────────────────────────────────────────
-                Rectangle()
-                    .fill(PultDesign.hairline)
-                    .frame(height: 0.5)
-
-                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 28 : 22)
-
-                // ── Capabilities (quiet list, no chips) ──────────────────
-                PultEditorialCapabilities()
-
-                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 28 : 22)
-
-                // ── Hairline ─────────────────────────────────────────────
-                Rectangle()
-                    .fill(PultDesign.hairline)
-                    .frame(height: 0.5)
-
-                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 28 : 22)
-
-                // ── Setup steps ──────────────────────────────────────────
-                PultSetupSteps()
-
-                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 36 : 28)
-
-                // ── Primary CTA ──────────────────────────────────────────
-                Button("Add TV", systemImage: "plus", action: onAddTV)
-                    .buttonStyle(.glassProminent)
+                    // ── Primary CTA ──────────────────────────────────────────
+                    Button(action: onAddTV) {
+                        Text("Add TV")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity, minHeight: 50)
+                    }
+                    .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                    .frame(maxWidth: .infinity, minHeight: 52)
                     .tint(PultDesign.accent)
                     .accessibilityHint("Opens nearby TV scanning and manual address entry.")
+                }
+                .frame(maxWidth: 390)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 28)
+                .padding(.bottom, 20)
+                .frame(
+                    minHeight: max(proxy.size.height, dynamicTypeSize.isAccessibilitySize ? 680 : 560)
+                )
             }
-            .frame(maxWidth: 420, alignment: .leading)
-            .frame(maxWidth: .infinity)
-            .containerRelativeFrame(.vertical, alignment: .center) { length, _ in
-                max(length, dynamicTypeSize.isAccessibilitySize ? 680 : 560)
-            }
-            .padding(.horizontal, 28)
-            .padding(.vertical, 36)
+            .scrollIndicators(.hidden)
         }
-        .scrollIndicators(.hidden)
     }
 }
 
-// MARK: - Capabilities (restrained list, hairline-separated)
+// MARK: - Shared feature model
 
-private struct PultEditorialCapabilities: View {
-    private struct Capability {
-        var systemImage: String
-        var label: String
-    }
+private struct OnboardingFeature {
+    var systemImage: String
+    var title: String
+    var description: String
+}
 
-    private let items: [Capability] = [
-        Capability(systemImage: "dpad",                   label: "Full D-pad and media controls"),
-        Capability(systemImage: "keyboard",               label: "Native keyboard and text entry"),
-        Capability(systemImage: "lock.rectangle",         label: "Lock Screen persistent remote"),
+// MARK: - Feature list (Apple-style: symbol + bold title + description, no dividers)
+
+private struct PultFeatureList: View {
+    private let features: [OnboardingFeature] = [
+        OnboardingFeature(
+            systemImage: "dot.radiowaves.left.and.right",
+            title: "Find your TV",
+            description: "Pult discovers Google TV and Android TV devices on your Wi-Fi."
+        ),
+        OnboardingFeature(
+            systemImage: "link",
+            title: "Pair once",
+            description: "Enter the 6-digit code shown on your TV. Pult remembers it."
+        ),
+        OnboardingFeature(
+            systemImage: "av.remote",
+            title: "Control everything",
+            description: "Touchpad, keyboard, apps, volume — plus Lock Screen, Siri, and Control Center."
+        ),
     ]
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                if index > 0 {
-                    Rectangle()
-                        .fill(PultDesign.hairline)
-                        .frame(height: 0.5)
-                }
-
-                HStack(spacing: 14) {
-                    Image(systemName: item.systemImage)
-                        .font(.system(size: 14, weight: .light))
-                        .foregroundStyle(PultDesign.accent)
-                        .frame(width: 20, alignment: .center)
-                        .accessibilityHidden(true)
-
-                    Text(item.label)
-                        .font(PultTypography.bodySmall)
-                        .foregroundStyle(PultDesign.warmInk.opacity(0.72))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.vertical, 13)
-                .frame(minHeight: 44)
-                .accessibilityElement(children: .combine)
+        VStack(alignment: .leading, spacing: dynamicTypeSize.isAccessibilitySize ? 36 : 28) {
+            ForEach(Array(features.enumerated()), id: \.offset) { _, feature in
+                PultFeatureRow(feature: feature)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .contain)
     }
 }
 
-// MARK: - Setup steps (numbered, hairline-separated, no card)
+// MARK: - Single feature row
 
-private struct PultSetupSteps: View {
-    private struct Step {
-        var numeral: String
-        var title: String
-        var detail: String
-    }
-
-    private let steps: [Step] = [
-        Step(numeral: "01", title: "Find",    detail: "Bonjour discovery when the TV is awake on the same network."),
-        Step(numeral: "02", title: "Pair",    detail: "Enter the 6-character code shown on the TV screen."),
-        Step(numeral: "03", title: "Control", detail: "Launch apps, type searches, and keep the remote alive on the Lock Screen."),
-    ]
+private struct PultFeatureRow: View {
+    let feature: OnboardingFeature
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
-                if index > 0 {
-                    Rectangle()
-                        .fill(PultDesign.hairline)
-                        .frame(height: 0.5)
-                }
-
-                HStack(alignment: .top, spacing: 16) {
-                    Text(step.numeral)
-                        .font(PultTypography.label)
-                        .foregroundStyle(PultDesign.accent)
-                        .kerning(0.5)
-                        .frame(width: 24, alignment: .leading)
-                        .accessibilityHidden(true)
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(step.title)
-                            .font(PultTypography.subhead)
-                            .foregroundStyle(PultDesign.warmInk)
-                        Text(step.detail)
-                            .font(PultTypography.bodySmall)
-                            .foregroundStyle(PultDesign.warmInk.opacity(0.48))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-                .padding(.vertical, 14)
-                .frame(minHeight: 44)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("\(step.title). \(step.detail)")
+        ViewThatFits(in: .horizontal) {
+            // Preferred: symbol on left, text stacked to right
+            HStack(alignment: .top, spacing: 20) {
+                symbolView
+                textStack
+            }
+            // Accessibility size fallback: stack vertically
+            VStack(alignment: .leading, spacing: 12) {
+                symbolView
+                textStack
             }
         }
-        .accessibilityElement(children: .contain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(feature.title). \(feature.description)")
+    }
+
+    private var symbolView: some View {
+        Image(systemName: feature.systemImage)
+            .symbolRenderingMode(.hierarchical)
+            .font(.system(size: 30, weight: .regular))
+            .foregroundStyle(PultDesign.accent)
+            .frame(width: 36, height: 36, alignment: .center)
+            .accessibilityHidden(true)
+    }
+
+    private var textStack: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(feature.title)
+                .font(PultTypography.subhead)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(feature.description)
+                .font(PultTypography.body)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
