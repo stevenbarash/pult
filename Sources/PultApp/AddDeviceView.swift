@@ -72,7 +72,8 @@ struct AddDeviceView: View {
                 title: "Scan unavailable",
                 message: "\(message) Check Local Network access in Settings if this keeps happening, or add the TV by IP address below.",
                 systemImage: "exclamationmark.triangle",
-                tone: .error
+                tone: .error,
+                openSettingsAction: appSettingsAction
             )
         }
     }

@@ -181,7 +181,7 @@ struct ConnectingBanner: View {
     var message: String
 
     var body: some View {
-        let tint = Color.pultAccent
+        let tint = PultDesign.accent
         let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
 
         HStack(spacing: 10) {
