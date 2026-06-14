@@ -20,7 +20,6 @@ struct TouchpadView: View {
     var body: some View {
         ZStack {
             touchpadTexture
-            edgeHints
             tapPulse
             swipeFlash
             hintLabel
@@ -126,16 +125,6 @@ struct TouchpadView: View {
         .accessibilityHidden(true)
     }
 
-    private var edgeHints: some View {
-        ForEach(TouchpadEdge.allCases, id: \.self) { edge in
-            Image(systemName: edge.chevronName)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(.secondary.opacity(edgeHintOpacity))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: edge.alignment)
-                .padding(16)
-        }
-    }
-
     @ViewBuilder
     private var hintLabel: some View {
         if lifetimeGestureCount < 5 {
@@ -152,38 +141,12 @@ struct TouchpadView: View {
                 .animation(reduceMotion ? nil : .smooth, value: lifetimeGestureCount)
         }
     }
-
-    private var edgeHintOpacity: Double {
-        colorSchemeContrast == .increased ? 0.48 : 0.22
-    }
 }
 
 private struct TouchFeedback {
     var id: Int
     var key: RemoteKey
     var location: CGPoint?
-}
-
-private enum TouchpadEdge: CaseIterable {
-    case up, down, left, right
-
-    var alignment: Alignment {
-        switch self {
-        case .up: .top
-        case .down: .bottom
-        case .left: .leading
-        case .right: .trailing
-        }
-    }
-
-    var chevronName: String {
-        switch self {
-        case .up: "chevron.compact.up"
-        case .down: "chevron.compact.down"
-        case .left: "chevron.compact.left"
-        case .right: "chevron.compact.right"
-        }
-    }
 }
 
 private extension RemoteKey {
