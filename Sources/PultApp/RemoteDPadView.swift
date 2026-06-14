@@ -201,34 +201,54 @@ private struct DPadWedgeButton: View {
                 .frame(width: side, height: side)
                 .overlay {
                     Image(systemName: direction.systemImage)
-                        .font(.system(size: side * 0.07 + 12, weight: .semibold))
+                        .font(.system(size: side * 0.055 + 9, weight: .semibold))
                         .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(.primary)
+                        .foregroundStyle(.secondary)
                         .offset(iconOffset)
                 }
                 .contentShape(wedge)
         }
-        .buttonStyle(GlassShapeButtonStyle(shape: wedge))
+        .buttonStyle(DPadWedgeButtonStyle(wedge: wedge))
         .accessibilityLabel(direction.key.accessibilityLabel)
     }
 
     private var iconOffset: CGSize {
-        let radius = side * 0.5 * (1 + DPadWedge.innerRadiusFraction) / 2
+        let radius = side * 0.5 * (DPadWedge.outerRadiusFraction + DPadWedge.innerRadiusFraction) / 2
         let radians = direction.angle.radians
         return CGSize(width: radius * cos(radians), height: radius * sin(radians))
     }
 }
 
+/// Press feedback that stays flush inside the dial — a faint accent fill of the
+/// wedge, no protruding glass slice.
+private struct DPadWedgeButtonStyle: ButtonStyle {
+    let wedge: DPadWedge
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background {
+                wedge.fill(PultDesign.accent.opacity(configuration.isPressed ? 0.20 : 0))
+            }
+            .animation(reduceMotion ? nil : .snappy(duration: 0.14), value: configuration.isPressed)
+    }
+}
+
 private struct DPadWedge: Shape {
     static let innerRadiusFraction: CGFloat = 0.42
+    /// Keep the wedge inside the dial circle (which is inset by padding) so the
+    /// press highlight never juts out past the ring.
+    static let outerRadiusFraction: CGFloat = 0.94
 
     var centerAngle: Angle
-    var sweep: Angle = .degrees(80)
+    var sweep: Angle = .degrees(84)
 
     func path(in rect: CGRect) -> Path {
         let center = CGPoint(x: rect.midX, y: rect.midY)
-        let outerRadius = min(rect.width, rect.height) / 2
-        let innerRadius = outerRadius * Self.innerRadiusFraction
+        let maxRadius = min(rect.width, rect.height) / 2
+        let outerRadius = maxRadius * Self.outerRadiusFraction
+        let innerRadius = maxRadius * Self.innerRadiusFraction
         let start = Angle(radians: centerAngle.radians - sweep.radians / 2)
         let end = Angle(radians: centerAngle.radians + sweep.radians / 2)
 
