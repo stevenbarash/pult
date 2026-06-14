@@ -568,27 +568,6 @@ struct RemoteControlSurface: View {
         }
     }
 
-    @ViewBuilder
-    private var primaryActionRow: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            VStack(spacing: 10) {
-                searchButton
-                launcherButton
-            }
-        } else {
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) {
-                    searchButton
-                    launcherButton
-                }
-                VStack(spacing: 10) {
-                    searchButton
-                    launcherButton
-                }
-            }
-        }
-    }
-
     /// Merged compact row — Search TV and Favorite Apps side-by-side in a
     /// single visual band. Reduces the number of stacked clusters, making
     /// the layout calmer and more similar to Apple's Control Center remote.
