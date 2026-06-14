@@ -5,9 +5,15 @@ public enum FramingError: Error, Equatable {
     case incompleteVarint
     case varintTooLong
     case incompleteFrame(expected: Int, actual: Int)
+    case frameTooLarge(declared: UInt64)
 }
 
 public struct VarintFramer: Sendable {
+    /// RemoteMessage frames are tiny (key events, IME edits, volume steps) and
+    /// arrive in <=64KB transport chunks. This cap sits far above any legitimate
+    /// frame so a corrupt length prefix can't over-allocate or crash.
+    public static let maxFrameLength: Int = 4 * 1024 * 1024
+
     public init() {}
 
     public func frame(_ payload: Data) -> Data {
@@ -21,7 +27,10 @@ public struct VarintFramer: Sendable {
 
         let decoded = try decodeVarint(from: buffer)
         let headerLength = decoded.bytesRead
-        let payloadLength = Int(decoded.value)
+        guard let payloadLength = Int(exactly: decoded.value),
+              payloadLength <= Self.maxFrameLength else {
+            throw FramingError.frameTooLarge(declared: decoded.value)
+        }
         let frameLength = headerLength + payloadLength
 
         guard buffer.count >= frameLength else {
