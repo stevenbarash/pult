@@ -32,24 +32,30 @@ struct TextEntryView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 18) {
-                    header
-                    fieldFocusPrompt
-                    editorSection
-                    suggestions
-                    controls
-                    errorMessage
+            Group {
+                if model.selectedDevice == nil {
+                    noTVSelectedState
+                } else {
+                    ScrollView {
+                        VStack(spacing: 18) {
+                            header
+                            fieldFocusPrompt
+                            editorSection
+                            suggestions
+                            controls
+                            errorMessage
+                        }
+                        .frame(maxWidth: 520)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 24)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    #if os(iOS)
+                    .scrollDismissesKeyboard(.interactively)
+                    #endif
                 }
-                .frame(maxWidth: 520)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 24)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            #if os(iOS)
-            .scrollDismissesKeyboard(.interactively)
-            #endif
             .background { RemoteBackground() }
             .navigationTitle("TV Keyboard")
             #if os(iOS)
@@ -67,6 +73,17 @@ struct TextEntryView: View {
             if model.session.textFieldStatus != nil {
                 isFocused = true
             }
+        }
+    }
+
+    private var noTVSelectedState: some View {
+        ContentUnavailableView {
+            Label("No TV Selected", systemImage: "tv.badge.wifi.slash")
+        } description: {
+            Text("Add or choose a TV to type.")
+        } actions: {
+            Button("Done") { dismiss() }
+                .buttonStyle(.bordered)
         }
     }
 
