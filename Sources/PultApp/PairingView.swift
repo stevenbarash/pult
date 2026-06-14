@@ -443,6 +443,7 @@ private struct PairingCodeField: View {
         }
         .contentShape(.rect)
         .onTapGesture { isFocused = true }
+        .sensoryFeedback(.selection, trigger: code.count)
         .onChange(of: code) { _, newValue in
             let cleaned = PairingCode.sanitized(newValue)
             guard cleaned == newValue else {
@@ -503,7 +504,7 @@ private struct PairingCodeField: View {
             .overlay {
                 shape
                     .strokeBorder(
-                        isActive ? Color.accentColor.opacity(0.7) : .white.opacity(0.1),
+                        isActive ? PultDesign.accent.opacity(0.7) : PultDesign.hairline,
                         lineWidth: 1.5
                     )
             }

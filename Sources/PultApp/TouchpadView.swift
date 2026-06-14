@@ -158,7 +158,7 @@ struct TouchpadView: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, dynamicTypeSize.isAccessibilitySize ? 30 : 48)
                 .transition(.opacity)
-                .animation(.smooth, value: lifetimeGestureCount)
+                .animation(reduceMotion ? nil : .smooth, value: lifetimeGestureCount)
         }
     }
 

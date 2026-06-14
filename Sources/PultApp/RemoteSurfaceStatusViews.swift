@@ -67,7 +67,7 @@ struct CommandFailureBanner: View {
 
     var body: some View {
         let tint = PultDesign.danger
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
 
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
@@ -123,21 +123,25 @@ struct CommandFailureBanner: View {
         Button("Retry", systemImage: "arrow.clockwise", action: onRetryCommand)
             .buttonStyle(.borderedProminent)
             .tint(PultDesign.danger)
+            .frame(minHeight: 44)
     }
 
     private var reconnectButton: some View {
         Button("Reconnect", systemImage: "antenna.radiowaves.left.and.right", action: onRetryConnect)
             .buttonStyle(.bordered)
+            .frame(minHeight: 44)
     }
 
     private var pairButton: some View {
         Button("Pair Again", systemImage: "link", action: onPair)
             .buttonStyle(.bordered)
+            .frame(minHeight: 44)
     }
 
     private var manualIPButton: some View {
         Button("Manual IP", systemImage: "network", action: onManualIP)
             .buttonStyle(.bordered)
+            .frame(minHeight: 44)
     }
 }
 
@@ -149,7 +153,7 @@ struct StatusBanner: View {
     var action: () -> Void
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
 
         HStack(spacing: 10) {
             Image(systemName: systemImage)
@@ -178,7 +182,7 @@ struct ConnectingBanner: View {
 
     var body: some View {
         let tint = Color.pultAccent
-        let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
 
         HStack(spacing: 10) {
             ProgressView()

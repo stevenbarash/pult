@@ -58,7 +58,7 @@ private struct PultRemoteLaunchPoster: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 34, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius, style: .continuous)
 
         VStack(alignment: .leading, spacing: dynamicTypeSize.isAccessibilitySize ? 18 : 16) {
             PultBrandLockup(subtitle: "Google TV remote", markSize: dynamicTypeSize.isAccessibilitySize ? 44 : 48)
@@ -146,7 +146,7 @@ private struct PultRemoteLaunchPoster: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 16)
         .background {
-            RoundedRectangle(cornerRadius: 38, style: .continuous)
+            RoundedRectangle(cornerRadius: 32, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: [
@@ -159,7 +159,7 @@ private struct PultRemoteLaunchPoster: View {
                     )
                 )
                 .overlay {
-                    RoundedRectangle(cornerRadius: 38, style: .continuous)
+                    RoundedRectangle(cornerRadius: 32, style: .continuous)
                         .stroke(PultDesign.accent.opacity(0.30), lineWidth: 1)
                 }
         }
