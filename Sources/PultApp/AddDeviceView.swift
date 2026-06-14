@@ -62,9 +62,10 @@ struct AddDeviceView: View {
         case .manualOnly:
             DiscoveryStatusPresentation(
                 title: "No nearby TVs found",
-                message: "The TV may be asleep, on another Wi-Fi network, or not advertising right now. Retry the scan or enter the IP address.",
+                message: "Two common causes: Local Network permission is off (if you tapped Don't Allow, Pult can't see your TV), or the TV is asleep or on a different Wi-Fi network.",
                 systemImage: "exclamationmark.magnifyingglass",
-                tone: .warning
+                tone: .warning,
+                openSettingsAction: appSettingsAction
             )
         case let .failed(message):
             DiscoveryStatusPresentation(
@@ -133,7 +134,6 @@ struct AddDeviceView: View {
                 detail: "Bonjour discovery probes the command port as devices appear."
             )
             DiscoveryStatusRow(status: discoveryStatus)
-            LocalNetworkPermissionRow(openSettings: appSettingsAction)
 
             ForEach(model.discovery.discoveredDevices) { device in
                 let savedDevice = savedRecord(for: device)
@@ -416,6 +416,7 @@ private struct DiscoveryStatusPresentation {
     var systemImage: String
     var tone: Tone
     var isScanning = false
+    var openSettingsAction: (() -> Void)? = nil
 }
 
 private struct DeviceReadinessPresentation {
@@ -592,57 +593,38 @@ private struct DiscoveryStatusRow: View {
     let status: DiscoveryStatusPresentation
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            if status.isScanning {
-                ProgressView()
-                    .controlSize(.small)
-                    .padding(.top, 2)
-            } else {
-                Image(systemName: status.systemImage)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(status.tone.color)
-                    .frame(width: 22)
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                Text(status.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                Text(status.message)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-private struct LocalNetworkPermissionRow: View {
-    var openSettings: (() -> Void)?
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "lock.shield")
-                .font(.body.weight(.semibold))
-                .foregroundStyle(Color.pultAccent)
-                .frame(width: 22)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Local Network Access")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                Text("Choose Allow when iOS asks so Pult can find Google TVs on this Wi-Fi. Manual IP still works when scanning does not.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                if let openSettings {
-                    Button("Open Settings", systemImage: "gear") {
-                        openSettings()
-                    }
-                    .buttonStyle(.borderless)
-                    .font(.footnote.weight(.semibold))
-                    .accessibilityHint("Opens Pult settings so you can review Local Network access.")
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                if status.isScanning {
+                    ProgressView()
+                        .controlSize(.small)
+                        .padding(.top, 2)
+                } else {
+                    Image(systemName: status.systemImage)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(status.tone.color)
+                        .frame(width: 22)
+                }
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(status.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text(status.message)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
+            if let openSettings = status.openSettingsAction {
+                Button("Open Settings", systemImage: "gear") {
+                    openSettings()
+                }
+                .buttonStyle(.glassProminent)
+                .controlSize(.regular)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .accessibilityHint("Opens Pult in iOS Settings so you can turn on Local Network access.")
+            }
         }
-        .accessibilityElement(children: openSettings == nil ? .combine : .contain)
+        .accessibilityElement(children: status.openSettingsAction == nil ? .combine : .contain)
     }
 }
 
