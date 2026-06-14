@@ -11,6 +11,7 @@ struct FavoriteAppLauncherView: View {
     @State private var appLink = ""
     @State private var favoriteSearchText = ""
     @State private var statusMessage: String?
+    @State private var actionFailure: RemoteCommandFailure?
     @State private var launchingID: UUID?
 
     private let store = FavoriteAppLinkStore()
@@ -105,6 +106,12 @@ struct FavoriteAppLauncherView: View {
                         Text(statusMessage)
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                    }
+                }
+
+                if let actionFailure {
+                    Section {
+                        actionFailureRow(actionFailure)
                     }
                 }
             }
@@ -204,16 +211,55 @@ struct FavoriteAppLauncherView: View {
         }
 
         launchingID = favorite.id
+        actionFailure = nil
         statusMessage = "Sending \(favorite.title)..."
         Task {
             let outcome = await model.openAppLink(url)
             if outcome == .sent {
                 statusMessage = "Sent \(favorite.title) to \(model.selectedDevice?.name ?? "TV")."
+                actionFailure = nil
             } else {
-                statusMessage = model.session.lastError ?? "The TV did not accept the app link."
+                let errorText = model.session.lastError ?? "The TV did not accept the app link."
+                actionFailure = RemoteCommandFailure(message: errorText)
+                statusMessage = nil
             }
             launchingID = nil
         }
+    }
+
+    private func reconnect() {
+        actionFailure = nil
+        Task { @MainActor in
+            await model.ensureConnected()
+            if case let .failed(message) = model.session.connectionState {
+                actionFailure = RemoteCommandFailure(message: message)
+            }
+        }
+    }
+
+    private func actionFailureRow(_ failure: RemoteCommandFailure) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(failure.message)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(PultDesign.warning)
+                Text(failure.guidance)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Launch error: \(failure.message). \(failure.guidance)")
+
+            HStack(spacing: 8) {
+                Button("Reconnect", systemImage: "arrow.clockwise") {
+                    reconnect()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .contain)
     }
 
     private func addFavorite() {
