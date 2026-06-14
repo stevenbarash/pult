@@ -219,8 +219,14 @@ private struct StatusBadge: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            StatusDot(status: status, isStale: isStale)
-            if !compact {
+            if compact {
+                // Non-color differentiator: SF Symbol varies by state so
+                // low-vision users can distinguish without relying on hue.
+                Image(systemName: status.statusSymbol(isStale: isStale))
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(status.tint(isStale: isStale))
+            } else {
+                StatusDot(status: status, isStale: isStale)
                 Text(status.displayText(isStale: isStale))
                     .font(.caption2.weight(.semibold))
                     .lineLimit(1)
@@ -260,6 +266,20 @@ private struct StatusDot: View {
 }
 
 private extension RemoteSessionAttributes.Status {
+    /// Per-state SF Symbol for compact contexts where color alone is
+    /// insufficient (lock-screen small Live Activity).
+    /// connected  → checkmark.circle.fill  (filled check — clearly "good")
+    /// connecting → ellipsis.circle        (progress dots — "in progress")
+    /// failed     → exclamationmark.circle.fill (alert — "needs attention")
+    func statusSymbol(isStale: Bool = false) -> String {
+        if isStale { return "clock.badge.exclamationmark" }
+        switch self {
+        case .connected:  return "checkmark.circle.fill"
+        case .connecting: return "ellipsis.circle"
+        case .failed:     return "exclamationmark.circle.fill"
+        }
+    }
+
     func tint(isStale: Bool = false) -> Color {
         if isStale {
             return .secondary

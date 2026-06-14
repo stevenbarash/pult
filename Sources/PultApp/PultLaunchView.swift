@@ -112,9 +112,10 @@ private struct PultRemoteLaunchPoster: View {
                 .fill(PultDesign.danger.opacity(0.92))
                 .frame(width: 14, height: 14)
                 .overlay {
-                    Image(systemName: "power")
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundStyle(PultDesign.warmInk)
+                    Circle()
+                        .stroke(PultDesign.danger, lineWidth: 1)
+                        .frame(width: 18, height: 18)
+                        .opacity(0.40)
                 }
 
             ZStack {
