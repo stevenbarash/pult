@@ -469,9 +469,10 @@ struct GlassShapeButtonStyle<S: Shape>: ButtonStyle {
     }
 }
 
-/// Solid frosted circular button style — Apple TV Remote inspired.
-/// A clearly-filled translucent disc (not a thin ring on transparent) so
-/// buttons read as physical objects at a glance, with a gentle press scale.
+/// Frosted circular button style — Apple TV Remote inspired.
+/// Uses genuine SwiftUI material (.regularMaterial) so the disc reads as
+/// real vitreous glass on the dark canvas, not a flat gray fill. The hairline
+/// stroke on top anchors the edge without heaviness.
 /// In reduce-transparency mode, falls back to an opaque near-black fill.
 private struct NativeCircleButtonStyle: ButtonStyle {
     var size: CGFloat
@@ -488,16 +489,17 @@ private struct NativeCircleButtonStyle: ButtonStyle {
             .animation(reduceMotion ? nil : .snappy(duration: 0.14), value: pressed)
             .background {
                 if reduceTransparency {
+                    // High-contrast: opaque near-black disc, no blur.
                     Circle()
                         .fill(PultDesign.carbonMid)
                         .opacity(pressed ? 0.72 : 1)
                         .allowsHitTesting(false)
                 } else {
-                    // Solid frosted disc: a visible white fill at ~14 % opacity
-                    // on the near-black canvas produces a clearly lighter circle
-                    // that reads like the buttons on Apple's physical remote.
+                    // Real SwiftUI material — frosted glass, adapts to the
+                    // background blur context, reads clearly as a raised disc.
                     Circle()
-                        .fill(Color.white.opacity(pressed ? 0.10 : 0.14))
+                        .fill(.regularMaterial)
+                        .opacity(pressed ? 0.78 : 1)
                         .allowsHitTesting(false)
                 }
             }

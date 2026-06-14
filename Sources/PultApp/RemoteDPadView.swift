@@ -39,12 +39,20 @@ struct DPadRing: View {
 private struct DPadDial: View {
     let side: CGFloat
 
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     var body: some View {
         ZStack {
-            // Clean flat fill — the GlassShapeButtonStyle on each wedge
-            // provides the interactive material. A radial ring gives depth.
-            Circle()
-                .fill(PultDesign.surfaceRaised)
+            // Real SwiftUI material backing — the d-pad ring reads as a frosted
+            // disc, matching the authentic vitreous quality of the touchpad.
+            // Reduce-transparency fallback: opaque flat fill instead of blur.
+            if reduceTransparency {
+                Circle()
+                    .fill(PultDesign.surfaceRaised)
+            } else {
+                Circle()
+                    .fill(.regularMaterial)
+            }
             Circle()
                 .stroke(PultDesign.hairlineStrong, lineWidth: 1)
             // Subtle inner guide ring to orient the eye toward the center.

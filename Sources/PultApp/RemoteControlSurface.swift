@@ -239,7 +239,6 @@ struct RemoteControlSurface: View {
     private func surfaceContent(layout: RemoteSurfaceLayout) -> some View {
         if layout.isWide {
             VStack(spacing: layout.sectionSpacing) {
-                statusHeader
                 banner
 
                 HStack(alignment: .center, spacing: layout.columnSpacing) {
@@ -273,19 +272,33 @@ struct RemoteControlSurface: View {
         includesSecondaryCluster: Bool
     ) -> some View {
         VStack(spacing: layout.sectionSpacing) {
-            statusHeader
             banner
 
-            compactNavigationGroup(layout: layout)
+            // Hero navigation surface + mode toggle — dominant visual element.
+            compactNavigationSurface(layout: layout)
                 .disabled(!controlsAreEnabled)
                 .opacity(controlsAreEnabled ? 1 : 0.46)
 
+            if includesSecondaryCluster {
+                // Primary control cluster: back/home/mic/kbd/power
+                utilityRow(layout: layout)
+                    .disabled(!controlsAreEnabled)
+                    .opacity(controlsAreEnabled ? 1 : 0.46)
+            }
+
+            // Volume always present
             volumeBar(maxWidth: layout.maxWidth)
                 .disabled(!controlsAreEnabled)
                 .opacity(controlsAreEnabled ? 1 : 0.46)
 
             if includesSecondaryCluster {
-                compactSecondaryCluster(layout: layout)
+                // Secondary actions: search + favorite apps
+                primaryActionRow
+                    .disabled(!controlsAreEnabled)
+                    .opacity(controlsAreEnabled ? 1 : 0.46)
+
+                // Media transport: rewind / play-pause / forward
+                mediaRow(layout: layout)
                     .disabled(!controlsAreEnabled)
                     .opacity(controlsAreEnabled ? 1 : 0.46)
             }
@@ -293,15 +306,6 @@ struct RemoteControlSurface: View {
     }
 
     // MARK: Status banner
-
-    private var statusHeader: some View {
-        RemoteStatusHeader(
-            device: device,
-            state: connectionState,
-            isPaired: isPaired,
-            validationClaimState: validationClaimState
-        )
-    }
 
     private enum BannerKind: Equatable {
         case commandFailure(RemoteCommandFailure)
@@ -414,13 +418,12 @@ struct RemoteControlSurface: View {
         }
     }
 
-    /// Compact-layout navigation group: hero touch surface + mode toggle + utility row.
-    /// No outer panel — the hero surface itself provides the visual anchor.
-    private func compactNavigationGroup(layout: RemoteSurfaceLayout) -> some View {
+    /// Compact-layout navigation group (hero surface + mode toggle, no utility row).
+    /// The utility row is laid out separately below as the primary control cluster.
+    private func compactNavigationSurface(layout: RemoteSurfaceLayout) -> some View {
         VStack(spacing: layout.controlSpacing) {
             navigationSurface(layout: layout)
             modeToggle
-            utilityRow(layout: layout)
         }
     }
 
@@ -449,19 +452,21 @@ struct RemoteControlSurface: View {
 
     /// Hero touch surface: a clearly-lighter frosted area that dominates the
     /// screen and obviously invites swiping — like the large pad on Apple's
-    /// physical TV remote. The fill (~white 0.13) stands out against the
-    /// near-black canvas while staying calm and un-decorative.
+    /// physical TV remote. Real SwiftUI material (.regularMaterial) gives the
+    /// surface authentic vitreous depth; the hairline stroke anchors the edge.
     private var touchpadSurface: some View {
         let shape = RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius, style: .continuous)
         return TouchpadView(send: sendKey)
             .background {
+                // Genuine material fill — reads as frosted glass on the dark
+                // canvas; significantly more inviting than a flat opacity tint.
                 shape
-                    .fill(Color.white.opacity(0.13))
+                    .fill(.regularMaterial)
                     .allowsHitTesting(false)
             }
             .overlay {
                 shape
-                    .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
+                    .stroke(PultDesign.hairlineStrong, lineWidth: 0.5)
                     .allowsHitTesting(false)
             }
             .glassEffect(
@@ -551,15 +556,6 @@ struct RemoteControlSurface: View {
         }
     }
 
-    /// Compact secondary cluster: circular action buttons with no wrapping panel.
-    /// Buttons are spaced openly, letting the background breathe — Apple remote style.
-    private func compactSecondaryCluster(layout: RemoteSurfaceLayout) -> some View {
-        VStack(spacing: RemoteMetrics.clusterSpacing + 4) {
-            primaryActionRow
-            mediaRow(layout: layout)
-        }
-    }
-
     @ViewBuilder
     private var primaryActionRow: some View {
         if dynamicTypeSize.isAccessibilitySize {
@@ -612,12 +608,12 @@ struct RemoteControlSurface: View {
         return HStack(spacing: keySpacing) {
             RemoteCircleButton(systemImage: "arrow.uturn.backward", label: "Back", size: keySize) { sendKey(.back) }
             RemoteCircleButton(systemImage: "house", label: "Home", size: keySize) { sendKey(.home) }
-            RemoteCircleButton(systemImage: "mic.fill", label: "Voice search", iconColor: PultDesign.accent, size: keySize) { sendKey(.voiceSearch) }
+            // All glyphs neutral at rest — sage accent only on press/active state.
+            RemoteCircleButton(systemImage: "mic.fill", label: "Voice search", size: keySize) { sendKey(.voiceSearch) }
             RemoteCircleButton(systemImage: "keyboard", label: "Text input", size: keySize, action: onTextEntry)
-            // Power: use a restrained symbol with a quiet danger tint — not a
-            // bright coral disc; just a slightly warm glyph on the same frosted
-            // backing as every other button.
-            RemoteCircleButton(systemImage: "power", label: "Power", iconColor: PultDesign.danger.opacity(0.80), size: keySize) { sendKey(.power) }
+            // Power: neutral primary glyph; danger color reserved for
+            // the command-echo tint, not the button itself.
+            RemoteCircleButton(systemImage: "power", label: "Power", size: keySize) { sendKey(.power) }
         }
         .frame(maxWidth: .infinity)
     }
@@ -628,7 +624,8 @@ struct RemoteControlSurface: View {
 
         return HStack(spacing: keySpacing) {
             RemoteCircleButton(systemImage: "backward.fill", label: "Rewind", size: keySize) { sendKey(.rewind) }
-            RemoteCircleButton(systemImage: "playpause.fill", label: "Play or pause", iconColor: PultDesign.accent, size: keySize) { sendKey(.playPause) }
+            // Neutral primary — uniform with the rest of the cluster.
+            RemoteCircleButton(systemImage: "playpause.fill", label: "Play or pause", size: keySize) { sendKey(.playPause) }
             RemoteCircleButton(systemImage: "forward.fill", label: "Fast forward", size: keySize) { sendKey(.fastForward) }
         }
         .frame(maxWidth: .infinity)
@@ -720,10 +717,11 @@ private struct RemoteSurfaceLayout {
         self.isWide = isWide
         horizontalPadding = isWide ? 28 : 20
         verticalPadding = isWide ? 18 : 16
-        sectionSpacing = isWide ? 18 : 18
+        // Use PultSpacing grid: lg (24) between major groups, md (16) within.
+        sectionSpacing = isWide ? PultSpacing.lg : PultSpacing.md
         columnSpacing = isWide ? 20 : 0
-        controlSpacing = isWide ? 12 : 10
-        keySpacing = isWide ? RemoteMetrics.clusterSpacing : 14
+        controlSpacing = isWide ? PultSpacing.md : PultSpacing.sm
+        keySpacing = isWide ? RemoteMetrics.clusterSpacing : PultSpacing.md
         keySize = isWide ? RemoteMetrics.keySize : 52
 
         if isWide {
