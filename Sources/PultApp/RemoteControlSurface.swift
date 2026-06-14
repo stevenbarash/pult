@@ -128,16 +128,28 @@ struct RemoteControlSurface: View {
 
     /// All key sends funnel through here so every control shares one
     /// press-haptic trigger instead of each owning a counter.
+    ///
+    /// Pass `hapticKind: nil` to send the key command without any haptic —
+    /// used by the volume hold-repeat path to suppress machine-gun buzzing.
+    /// Overload that infers haptic kind from the key (normal path).
     private func sendKey(_ key: RemoteKey) {
+        sendKey(key, hapticKind: key.hapticKind)
+    }
+
+    /// Sends `key` with an explicit haptic kind, or without any haptic when
+    /// `hapticKind` is nil (used by the hold-repeat path to suppress buzz).
+    private func sendKey(_ key: RemoteKey, hapticKind: HapticKind?) {
         showCommandEcho(for: key)
-        keyPressFeedback.play()
+        if let kind = hapticKind {
+            keyPressFeedback.play(kind: kind)
+        }
         send(key)
     }
 
     private func sendKeyActionWithFeedback(_ key: RemoteKey, action: KeyAction) {
         if action != .release {
             showCommandEcho(for: key, action: action)
-            keyPressFeedback.play()
+            keyPressFeedback.play(kind: key.hapticKind)
         }
         sendKeyAction(key, action)
     }
@@ -668,11 +680,17 @@ struct RemoteControlSurface: View {
         .accessibilityHint("Opens search on the selected TV")
     }
 
+    /// Sends `key` to the TV without triggering any haptic feedback.
+    /// Used by hold-repeat zones so only the initial press produces a haptic.
+    private func sendKeySilently(_ key: RemoteKey) {
+        sendKey(key, hapticKind: nil)
+    }
+
     private func volumeBar(maxWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
-            HoldRepeatKeyZone(key: .volumeDown, systemImage: "speaker.minus.fill", send: sendKey)
+            HoldRepeatKeyZone(key: .volumeDown, systemImage: "speaker.minus.fill", send: sendKey, sendSilently: sendKeySilently)
             VolumeMuteButton { sendKey(.mute) }
-            HoldRepeatKeyZone(key: .volumeUp, systemImage: "speaker.plus.fill", send: sendKey)
+            HoldRepeatKeyZone(key: .volumeUp, systemImage: "speaker.plus.fill", send: sendKey, sendSilently: sendKeySilently)
         }
         .frame(maxWidth: maxWidth)
         .background {
@@ -689,6 +707,25 @@ struct RemoteControlSurface: View {
         }
     }
 
+}
+
+// MARK: - Haptic classification
+
+private extension RemoteKey {
+    /// Maps each key to the semantic haptic weight that best fits the gesture.
+    var hapticKind: HapticKind {
+        switch self {
+        case .select, .enter:
+            // Confirm actions deserve a heavier, more satisfying thud.
+            return .select
+        case .up, .down, .left, .right:
+            // Directional navigation is rapid and continuous; keep it featherlight.
+            return .directional
+        default:
+            // Back, home, media, voice, search, power, volume (single tap), mute, delete.
+            return .standard
+        }
+    }
 }
 
 private struct RemoteSurfaceLayout {

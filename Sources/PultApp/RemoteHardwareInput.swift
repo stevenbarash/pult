@@ -28,25 +28,53 @@ struct RemoteHardwareCommand {
     }
 }
 
+/// The semantic category of a remote key press, used to select the
+/// appropriate haptic weight. Three cases keep the feel palette small
+/// and tasteful: a heavy confirm thud, a featherweight directional tick,
+/// and a mid-weight tap for everything else.
+enum HapticKind {
+    /// D-pad centre / select / enter — heavier thud to confirm selection.
+    case select
+    /// Directional swipe or d-pad arrow — softer, lighter tick.
+    case directional
+    /// Standard button tap (back, home, media, mute, power, …).
+    case standard
+}
+
 @MainActor
 @Observable
 final class RemoteKeyPressFeedback {
-    var trigger = 0
+    // Separate counters so SwiftUI can bind distinct SensoryFeedback modifiers.
+    var selectTrigger = 0
+    var directionalTrigger = 0
+    var standardTrigger = 0
 
-    func play() {
-        trigger += 1
+    func play(kind: HapticKind) {
+        switch kind {
+        case .select:      selectTrigger += 1
+        case .directional: directionalTrigger += 1
+        case .standard:    standardTrigger += 1
+        }
     }
 }
 
 struct RemoteKeyPressFeedbackEmitter: View {
     let feedback: RemoteKeyPressFeedback
-    private let buttonPressFeedback = SensoryFeedback.impact(flexibility: .rigid, intensity: 0.78)
+
+    // Heavy thud for select/confirm.
+    private let selectFeedback = SensoryFeedback.impact(weight: .heavy, intensity: 0.85)
+    // Feather-light tick for directional navigation.
+    private let directionalFeedback = SensoryFeedback.impact(weight: .light, intensity: 0.50)
+    // Mid-weight tap for standard buttons — close to the original feel.
+    private let standardFeedback = SensoryFeedback.impact(flexibility: .rigid, intensity: 0.78)
 
     var body: some View {
         Color.clear
             .frame(width: 0, height: 0)
             .accessibilityHidden(true)
-            .sensoryFeedback(buttonPressFeedback, trigger: feedback.trigger)
+            .sensoryFeedback(selectFeedback, trigger: feedback.selectTrigger)
+            .sensoryFeedback(directionalFeedback, trigger: feedback.directionalTrigger)
+            .sensoryFeedback(standardFeedback, trigger: feedback.standardTrigger)
     }
 }
 

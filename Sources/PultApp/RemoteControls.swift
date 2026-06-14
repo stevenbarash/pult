@@ -462,10 +462,16 @@ struct GlassShapeButtonStyle<S: Shape>: ButtonStyle {
 /// Used for volume keys, where holding should keep adjusting. The repeater
 /// is tied to the view's lifetime and the scene staying active, so a hold
 /// interrupted by a call, backgrounding, or view removal cannot run away.
+///
+/// `sendSilently` is called for auto-repeat ticks so the haptic buzz from
+/// sending every 180 ms is suppressed — the initial press via `send` still
+/// produces haptic feedback. If `sendSilently` is nil it falls back to
+/// `send` for both initial press and repeats.
 struct HoldRepeatKeyZone: View {
     let key: RemoteKey
     var systemImage: String
     let send: (RemoteKey) -> Void
+    var sendSilently: ((RemoteKey) -> Void)? = nil
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
@@ -503,18 +509,24 @@ struct HoldRepeatKeyZone: View {
         return "Double-tap to press once. Touch and hold to repeat volume changes."
     }
 
+    /// The closure used for auto-repeat ticks. Uses `sendSilently` when
+    /// provided so haptic feedback is skipped on repeated sends.
+    private var repeatSend: (RemoteKey) -> Void {
+        sendSilently ?? send
+    }
+
     private var holdGesture: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { _ in
                 guard !isHolding else { return }
                 isHolding = true
-                send(key)
+                send(key)                  // initial press — haptic fires here
                 repeater = Task { @MainActor in
                     do {
                         try await Task.sleep(for: .milliseconds(420))
                         while true {
                             try Task.checkCancellation()
-                            send(key)
+                            repeatSend(key) // repeats — silent (no haptic)
                             try await Task.sleep(for: .milliseconds(180))
                         }
                     } catch {}
