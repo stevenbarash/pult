@@ -7,275 +7,175 @@ struct PultWelcomeEmptyState: View {
 
     var body: some View {
         ScrollView(.vertical) {
-            VStack(alignment: .leading, spacing: dynamicTypeSize.isAccessibilitySize ? 22 : 24) {
-                PultRemoteLaunchPoster()
+            VStack(alignment: .leading, spacing: 0) {
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Your TV, finally native.")
-                        .font(PultTypography.display)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.82)
-                    Text("Pair once, then drive the living room from the remote, keyboard, app launcher, Lock Screen, Control Center, Siri, and Shortcuts.")
-                        .font(PultTypography.body)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(5)
-                        .minimumScaleFactor(0.86)
+                // ── Brand label ──────────────────────────────────────────
+                HStack(spacing: 6) {
+                    Rectangle()
+                        .fill(PultDesign.accent.opacity(0.70))
+                        .frame(width: 20, height: 1)
+                    Text("PULT · GOOGLE TV REMOTE")
+                        .font(PultTypography.label)
+                        .foregroundStyle(PultDesign.accent)
+                        .kerning(1.2)
+                        .textCase(.uppercase)
                 }
+                .accessibilityLabel("Pult — Google TV Remote")
 
+                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 20 : 16)
+
+                // ── Hero headline ────────────────────────────────────────
+                Text("Your TV,\nfinally native.")
+                    .font(PultTypography.display)
+                    .foregroundStyle(PultDesign.warmInk)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 18 : 14)
+
+                // ── Value proposition ────────────────────────────────────
+                Text("Pair once, then drive the living room from the remote, keyboard, app launcher, Lock Screen, Control Center, Siri, and Shortcuts.")
+                    .font(PultTypography.body)
+                    .foregroundStyle(PultDesign.warmInk.opacity(0.50))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 36 : 28)
+
+                // ── Hairline ─────────────────────────────────────────────
+                Rectangle()
+                    .fill(PultDesign.hairline)
+                    .frame(height: 0.5)
+
+                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 28 : 22)
+
+                // ── Capabilities (quiet list, no chips) ──────────────────
+                PultEditorialCapabilities()
+
+                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 28 : 22)
+
+                // ── Hairline ─────────────────────────────────────────────
+                Rectangle()
+                    .fill(PultDesign.hairline)
+                    .frame(height: 0.5)
+
+                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 28 : 22)
+
+                // ── Setup steps ──────────────────────────────────────────
+                PultSetupSteps()
+
+                Spacer().frame(height: dynamicTypeSize.isAccessibilitySize ? 36 : 28)
+
+                // ── Primary CTA ──────────────────────────────────────────
                 Button("Add TV", systemImage: "plus", action: onAddTV)
                     .buttonStyle(.glassProminent)
                     .controlSize(.large)
                     .frame(maxWidth: .infinity, minHeight: 52)
+                    .tint(PultDesign.accent)
                     .accessibilityHint("Opens nearby TV scanning and manual address entry.")
-
-                PultCapabilityStrip()
-
-                VStack(alignment: .leading, spacing: 10) {
-                    PultSetupStep(systemImage: "dot.radiowaves.left.and.right", title: "Find", detail: "Use Bonjour discovery when the TV is awake.")
-                    PultSetupStep(systemImage: "link", title: "Pair", detail: "Enter the 6-character code shown on the TV.")
-                    PultSetupStep(systemImage: "button.programmable", title: "Control", detail: "Launch apps, type searches, and keep the remote alive on the Lock Screen.")
-                }
-                .padding(16)
-                .pultContentSurface(
-                    in: RoundedRectangle(cornerRadius: 26, style: .continuous),
-                    tint: .pultAccent,
-                    isProminent: true
-                )
             }
             .frame(maxWidth: 420, alignment: .leading)
             .frame(maxWidth: .infinity)
             .containerRelativeFrame(.vertical, alignment: .center) { length, _ in
                 max(length, dynamicTypeSize.isAccessibilitySize ? 680 : 560)
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 28)
+            .padding(.horizontal, 28)
+            .padding(.vertical, 36)
         }
         .scrollIndicators(.hidden)
     }
 }
 
-private struct PultRemoteLaunchPoster: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+// MARK: - Capabilities (restrained list, hairline-separated)
 
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: RemoteMetrics.surfaceCornerRadius, style: .continuous)
-
-        VStack(alignment: .leading, spacing: dynamicTypeSize.isAccessibilitySize ? 18 : 16) {
-            PultBrandLockup(subtitle: "Google TV remote", markSize: dynamicTypeSize.isAccessibilitySize ? 44 : 48)
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .center, spacing: 20) {
-                    previewRemote
-                    posterCopy
-                }
-
-                VStack(alignment: .leading, spacing: 14) {
-                    previewRemote
-                        .frame(maxWidth: .infinity, alignment: .center)
-                    posterCopy
-                }
-            }
-        }
-        .padding(dynamicTypeSize.isAccessibilitySize ? 16 : 18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            shape
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            PultDesign.surfaceStrong,
-                            PultDesign.surface.opacity(0.52),
-                            Color.black.opacity(0.10)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(alignment: .topTrailing) {
-                    PultSignalBurst()
-                        .frame(width: 178, height: 178)
-                        .padding(.top, -36)
-                        .padding(.trailing, -30)
-                }
-                .overlay {
-                    shape.stroke(PultDesign.hairlineStrong, lineWidth: 1)
-                }
-        }
-        .clipShape(shape)
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Pult Google TV remote with Lock Screen, keyboard, and app launch controls.")
+private struct PultEditorialCapabilities: View {
+    private struct Capability {
+        var systemImage: String
+        var label: String
     }
 
-    private var previewRemote: some View {
-        VStack(spacing: 8) {
-            Circle()
-                .fill(PultDesign.danger.opacity(0.92))
-                .frame(width: 14, height: 14)
-                .overlay {
-                    Circle()
-                        .stroke(PultDesign.danger, lineWidth: 1)
-                        .frame(width: 18, height: 18)
-                        .opacity(0.40)
+    private let items: [Capability] = [
+        Capability(systemImage: "dpad",                   label: "Full D-pad and media controls"),
+        Capability(systemImage: "keyboard",               label: "Native keyboard and text entry"),
+        Capability(systemImage: "lock.rectangle",         label: "Lock Screen persistent remote"),
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                if index > 0 {
+                    Rectangle()
+                        .fill(PultDesign.hairline)
+                        .frame(height: 0.5)
                 }
 
-            ZStack {
-                Circle()
-                    .stroke(PultDesign.accent.opacity(0.64), lineWidth: 7)
-                Circle()
-                    .fill(PultDesign.surfaceStrong)
-                    .frame(width: 34, height: 34)
-                ForEach(0..<4, id: \.self) { index in
-                    Image(systemName: "chevron.up")
-                        .font(.system(size: 10, weight: .bold))
+                HStack(spacing: 14) {
+                    Image(systemName: item.systemImage)
+                        .font(.system(size: 14, weight: .light))
                         .foregroundStyle(PultDesign.accent)
-                        .offset(y: -36)
-                        .rotationEffect(.degrees(Double(index) * 90))
+                        .frame(width: 20, alignment: .center)
+                        .accessibilityHidden(true)
+
+                    Text(item.label)
+                        .font(PultTypography.bodySmall)
+                        .foregroundStyle(PultDesign.warmInk.opacity(0.72))
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-            }
-            .frame(width: 90, height: 90)
-
-            HStack(spacing: 8) {
-                ForEach(["arrow.uturn.backward", "house.fill", "playpause.fill"], id: \.self) { systemImage in
-                    Image(systemName: systemImage)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(systemImage == "playpause.fill" ? PultDesign.accent : PultDesign.warmInk.opacity(0.84))
-                        .frame(width: 27, height: 27)
-                        .background(PultDesign.surfaceRaised, in: Circle())
-                }
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 16)
-        .background {
-            RoundedRectangle(cornerRadius: 32, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.black.opacity(0.84),
-                            PultDesign.carbonMid.opacity(0.94),
-                            Color.black.opacity(0.92)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay {
-                    RoundedRectangle(cornerRadius: 32, style: .continuous)
-                        .stroke(PultDesign.accent.opacity(0.30), lineWidth: 1)
-                }
-        }
-        .shadow(color: PultDesign.accent.opacity(0.24), radius: 28, y: 16)
-        .frame(width: 126)
-        .accessibilityHidden(true)
-    }
-
-    private var posterCopy: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 8) {
-                    PultStatusChip(title: "Keyboard", systemImage: "keyboard", tint: .pultAccent)
-                    PultStatusChip(title: "Lock Screen", systemImage: "lock.fill", tint: PultDesign.utility)
-                    PultStatusChip(title: "Shortcuts", systemImage: "sparkles", tint: PultDesign.warning)
-                    PultStatusChip(title: "Control Center", systemImage: "slider.horizontal.3", tint: PultDesign.utility)
-                }
-            } else {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        PultStatusChip(title: "Keyboard", systemImage: "keyboard", tint: .pultAccent)
-                        PultStatusChip(title: "Lock Screen", systemImage: "lock.fill", tint: PultDesign.utility)
-                    }
-                    VStack(alignment: .leading, spacing: 8) {
-                        PultStatusChip(title: "Keyboard", systemImage: "keyboard", tint: .pultAccent)
-                        PultStatusChip(title: "Lock Screen", systemImage: "lock.fill", tint: PultDesign.utility)
-                    }
-                }
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        PultStatusChip(title: "Shortcuts", systemImage: "sparkles", tint: PultDesign.warning)
-                        PultStatusChip(title: "Control Center", systemImage: "slider.horizontal.3", tint: PultDesign.utility)
-                    }
-                    VStack(alignment: .leading, spacing: 8) {
-                        PultStatusChip(title: "Shortcuts", systemImage: "sparkles", tint: PultDesign.warning)
-                        PultStatusChip(title: "Control Center", systemImage: "slider.horizontal.3", tint: PultDesign.utility)
-                    }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-private struct PultSignalBurst: View {
-    var body: some View {
-        Canvas { context, size in
-            let center = CGPoint(x: size.width * 0.58, y: size.height * 0.42)
-            var path = Path()
-
-            for index in 0..<5 {
-                let diameter = CGFloat(42 + index * 32)
-                path.addEllipse(
-                    in: CGRect(
-                        x: center.x - diameter / 2,
-                        y: center.y - diameter / 2,
-                        width: diameter,
-                        height: diameter
-                    )
-                )
-            }
-
-            context.stroke(
-                path,
-                with: .color(PultDesign.accent.opacity(0.16)),
-                style: StrokeStyle(lineWidth: 1, dash: [3, 10])
-            )
-        }
-        .blendMode(.screen)
-        .accessibilityHidden(true)
-    }
-}
-
-private struct PultCapabilityStrip: View {
-    var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                capabilities
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                capabilities
+                .padding(.vertical, 13)
+                .frame(minHeight: 44)
+                .accessibilityElement(children: .combine)
             }
         }
         .accessibilityElement(children: .contain)
     }
-
-    @ViewBuilder
-    private var capabilities: some View {
-        PultStatusChip(title: "D-pad", systemImage: "dpad", tint: .pultAccent)
-        PultStatusChip(title: "Text Entry", systemImage: "text.cursor", tint: PultDesign.utility)
-        PultStatusChip(title: "Live Activity", systemImage: "rectangle.on.rectangle", tint: PultDesign.warning)
-    }
 }
 
-private struct PultSetupStep: View {
-    var systemImage: String
-    var title: String
-    var detail: String
+// MARK: - Setup steps (numbered, hairline-separated, no card)
+
+private struct PultSetupSteps: View {
+    private struct Step {
+        var numeral: String
+        var title: String
+        var detail: String
+    }
+
+    private let steps: [Step] = [
+        Step(numeral: "01", title: "Find",    detail: "Bonjour discovery when the TV is awake on the same network."),
+        Step(numeral: "02", title: "Pair",    detail: "Enter the 6-character code shown on the TV screen."),
+        Step(numeral: "03", title: "Control", detail: "Launch apps, type searches, and keep the remote alive on the Lock Screen."),
+    ]
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(Color.pultAccent)
-                .frame(width: 24)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(PultTypography.subhead)
-                Text(detail)
-                    .font(PultTypography.bodySmall)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
+                if index > 0 {
+                    Rectangle()
+                        .fill(PultDesign.hairline)
+                        .frame(height: 0.5)
+                }
+
+                HStack(alignment: .top, spacing: 16) {
+                    Text(step.numeral)
+                        .font(PultTypography.label)
+                        .foregroundStyle(PultDesign.accent)
+                        .kerning(0.5)
+                        .frame(width: 24, alignment: .leading)
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(step.title)
+                            .font(PultTypography.subhead)
+                            .foregroundStyle(PultDesign.warmInk)
+                        Text(step.detail)
+                            .font(PultTypography.bodySmall)
+                            .foregroundStyle(PultDesign.warmInk.opacity(0.48))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.vertical, 14)
+                .frame(minHeight: 44)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(step.title). \(step.detail)")
             }
         }
-            .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }
