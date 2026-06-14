@@ -37,6 +37,23 @@ func runsFullPairingHandshake() async throws {
 }
 
 @Test
+func startTimesOutWhenTVNeverAcks() async {
+    // MockTransport with nothing enqueued: receive() never returns, simulating a
+    // TV that accepts the connection but never sends the requestAck.
+    let transport = MockTransport()
+    let session = PairingSession(
+        transport: transport,
+        serviceName: "svc",
+        clientName: "cli",
+        receiveTimeout: .milliseconds(150)
+    )
+
+    await #expect(throws: PairingSessionError.timedOut) {
+        try await session.start(for: DeviceRecord(name: "TV", host: "192.168.1.10"), clientParameters: client)
+    }
+}
+
+@Test
 func surfacesTVRejection() async throws {
     let transport = MockTransport()
     let session = PairingSession(transport: transport, serviceName: "svc", clientName: "cli")

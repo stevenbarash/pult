@@ -14,6 +14,7 @@ public enum PairingSessionError: Error, Equatable {
     case unexpectedMessage
     case rejected(PairingMessage.Status)
     case missingPeerCertificate
+    case timedOut
 }
 
 /// Drives the Android TV Remote Service v2 pairing handshake on the pairing
@@ -24,6 +25,7 @@ public actor PairingSession {
     private let framer: VarintFramer
     private let serviceName: String
     private let clientName: String
+    private let receiveTimeout: Duration
     private var buffer = Data()
     private var clientParameters: RSAPublicKeyParameters?
 
@@ -31,12 +33,14 @@ public actor PairingSession {
         transport: RemoteTransport = NetworkRemoteTransport(),
         serviceName: String = "app.pult",
         clientName: String = "Pult",
-        framer: VarintFramer = VarintFramer()
+        framer: VarintFramer = VarintFramer(),
+        receiveTimeout: Duration = .seconds(12)
     ) {
         self.transport = transport
         self.serviceName = serviceName
         self.clientName = clientName
         self.framer = framer
+        self.receiveTimeout = receiveTimeout
     }
 
     public func start(for device: DeviceRecord, clientParameters: RSAPublicKeyParameters) async throws {
@@ -96,12 +100,41 @@ public actor PairingSession {
                 }
                 return message
             }
-            let chunk = try await transport.receive()
+            let chunk = try await receiveWithTimeout()
             if chunk.isEmpty {
                 await Task.yield()
                 continue
             }
             buffer.append(chunk)
+        }
+    }
+
+    /// A single `transport.receive()` bounded by `receiveTimeout`. A TV that
+    /// accepts the connection but never sends the expected ack (mid-reboot,
+    /// wrong service, half-open socket) would otherwise suspend the handshake
+    /// forever. On timeout the transport is closed so the in-flight receive
+    /// unblocks (the continuation isn't cancellation-aware on its own), then we
+    /// surface `.timedOut`.
+    private func receiveWithTimeout() async throws -> Data {
+        let transport = self.transport
+        let timeout = self.receiveTimeout
+        return try await withThrowingTaskGroup(of: Data.self) { group in
+            group.addTask {
+                try await withTaskCancellationHandler {
+                    try await transport.receive()
+                } onCancel: {
+                    Task { await transport.close() }
+                }
+            }
+            group.addTask {
+                try await Task.sleep(for: timeout)
+                throw PairingSessionError.timedOut
+            }
+            defer { group.cancelAll() }
+            guard let chunk = try await group.next() else {
+                throw PairingSessionError.timedOut
+            }
+            return chunk
         }
     }
 }
