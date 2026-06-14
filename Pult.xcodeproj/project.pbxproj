@@ -59,6 +59,8 @@
 		010000000000000000000050 /* RemoteDPadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000148 /* RemoteDPadView.swift */; };
 		010000000000000000000051 /* RemoteHardwareInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000149 /* RemoteHardwareInput.swift */; };
 		010000000000000000000052 /* RemoteSurfaceStatusViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000150 /* RemoteSurfaceStatusViews.swift */; };
+		010000000000000000000053 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000151 /* PrivacyInfo.xcprivacy */; };
+		010000000000000000000054 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000152 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -160,6 +162,8 @@
 		010000000000000000000148 /* RemoteDPadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteDPadView.swift; sourceTree = "<group>"; };
 		010000000000000000000149 /* RemoteHardwareInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteHardwareInput.swift; sourceTree = "<group>"; };
 		010000000000000000000150 /* RemoteSurfaceStatusViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteSurfaceStatusViews.swift; sourceTree = "<group>"; };
+		010000000000000000000151 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Supporting/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
+		010000000000000000000152 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Supporting/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
 		010000000000000000000201 /* Pult.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pult.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		010000000000000000000202 /* PultCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PultCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		010000000000000000000203 /* PultWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PultWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -249,6 +253,7 @@
 				010000000000000000000107 /* AppIcon60x60@3x.png */,
 				010000000000000000000138 /* Pult.entitlements */,
 				010000000000000000000106 /* Supporting/Info.plist */,
+				010000000000000000000151 /* PrivacyInfo.xcprivacy */,
 			);
 			path = PultApp;
 			sourceTree = "<group>";
@@ -286,6 +291,7 @@
 				010000000000000000000136 /* PultControls.swift */,
 				010000000000000000000139 /* PultWidgets.entitlements */,
 				010000000000000000000137 /* Supporting/Info.plist */,
+				010000000000000000000152 /* PrivacyInfo.xcprivacy */,
 			);
 			path = PultWidgets;
 			sourceTree = "<group>";
@@ -335,6 +341,7 @@
 			buildConfigurationList = 010000000000000000000703 /* Build configuration list for PBXNativeTarget "PultWidgets" */;
 			buildPhases = (
 				010000000000000000000523 /* Sources */,
+				010000000000000000000532 /* Resources */,
 				010000000000000000000513 /* Frameworks */,
 			);
 			buildRules = (
@@ -396,6 +403,15 @@
 			files = (
 				010000000000000000000008 /* Assets.xcassets in Resources */,
 				010000000000000000000010 /* AppIcon60x60@3x.png in Resources */,
+				010000000000000000000053 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		010000000000000000000532 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				010000000000000000000054 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
