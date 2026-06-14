@@ -50,7 +50,7 @@ struct RemoteValidationPresentation {
             title = "Validated \(validation.validatedAt.formatted(date: .abbreviated, time: .omitted))"
             detail = "\(validation.passedAreas.count) passed areas"
             systemImage = "checkmark.seal.fill"
-            tint = .green
+            tint = PultDesign.connected
         case let .needsAttention(report, lastSuccessful):
             title = lastSuccessful == nil ? "Validation needs attention" : "Revalidate needed"
             detail = report.summary
@@ -79,7 +79,7 @@ struct RemoteValidationPresentation {
         } else if report.isSuccessfulPhysicalValidation {
             title = "Validated \(report.updatedAt.formatted(date: .abbreviated, time: .omitted))"
             systemImage = "checkmark.seal.fill"
-            tint = .green
+            tint = PultDesign.connected
         } else {
             title = "Validation incomplete"
             systemImage = "checklist"

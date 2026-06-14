@@ -151,7 +151,7 @@ struct FavoriteAppLauncherView: View {
         HStack(spacing: 12) {
             Image(systemName: canLaunch ? "link.circle.fill" : "link.badge.plus")
                 .font(.title2.weight(.semibold))
-                .foregroundStyle(canLaunch ? Color.green : PultDesign.warning)
+                .foregroundStyle(canLaunch ? PultDesign.connected : PultDesign.warning)
                 .frame(width: 34)
             VStack(alignment: .leading, spacing: 3) {
                 Text(model.selectedDevice?.name ?? "No TV Selected")

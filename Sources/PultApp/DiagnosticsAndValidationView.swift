@@ -466,7 +466,7 @@ private struct DeviceValidationClaimRow: View {
         case .unvalidated:
             .secondary
         case .validated:
-            .green
+            PultDesign.connected
         case .needsAttention:
             PultDesign.warning
         }
@@ -575,8 +575,8 @@ private extension ValidationRunStatus {
         switch self {
         case .pending: .secondary
         case .running: .pultAccent
-        case .passed: .green
-        case .failed: .red
+        case .passed: PultDesign.connected
+        case .failed: PultDesign.danger
         case .skipped: .secondary
         case .needsReview: PultDesign.warning
         }
@@ -620,7 +620,7 @@ private struct ChecklistItemRow: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
                 .font(.body.weight(.semibold))
-                .foregroundStyle(isComplete ? Color.green : Color.secondary)
+                .foregroundStyle(isComplete ? PultDesign.connected : Color.secondary)
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title)

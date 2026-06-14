@@ -7,6 +7,8 @@ import WidgetKit
 extension Color {
     static let pultWidgetAccent = Color(red: 86.0 / 255.0, green: 214.0 / 255.0, blue: 201.0 / 255.0)
     static let pultWidgetWarning = Color(red: 242.0 / 255.0, green: 166.0 / 255.0, blue: 93.0 / 255.0)
+    static let pultWidgetConnected = Color(red: 123.0 / 255.0, green: 217.0 / 255.0, blue: 154.0 / 255.0)
+    static let pultWidgetDanger = Color(red: 255.0 / 255.0, green: 106.0 / 255.0, blue: 99.0 / 255.0)
 }
 
 /// The hero control for a Lock Screen slot or the Action button: one press

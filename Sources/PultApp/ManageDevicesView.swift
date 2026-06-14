@@ -84,7 +84,7 @@ private struct DeviceManagementRow: View {
             Spacer()
             Text(device.isPaired ? "Paired" : "Pair required")
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(device.isPaired ? Color.green : PultDesign.warning)
+                .foregroundStyle(device.isPaired ? PultDesign.connected : PultDesign.warning)
             if isSelected {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.tint)

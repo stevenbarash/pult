@@ -279,7 +279,7 @@ struct TextEntryView: View {
     private var sendReadinessLabel: some View {
         Label(sendDisabledReason ?? "Ready to send", systemImage: canSendText ? "checkmark.circle.fill" : "info.circle")
             .font(.caption.weight(.medium))
-            .foregroundStyle(canSendText ? Color.green : Color.secondary)
+            .foregroundStyle(canSendText ? PultDesign.connected : Color.secondary)
             .lineLimit(2)
             .minimumScaleFactor(0.82)
     }
@@ -417,7 +417,7 @@ struct TextEntryView: View {
     private var fieldStatusTint: Color {
         switch model.session.connectionState {
         case .connected where model.session.textFieldStatus != nil:
-            .green
+            PultDesign.connected
         case .connected:
             PultDesign.warning
         case .connecting:

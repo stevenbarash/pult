@@ -112,7 +112,7 @@ struct PairingView: View {
     private var pairedPhase: some View {
         PairingPhaseLayout(
             systemImage: "checkmark.seal.fill",
-            symbolColor: .green,
+            symbolColor: PultDesign.connected,
             title: "Paired with \(deviceName)",
             subtitle: "You're ready to take control."
         ) {

@@ -265,9 +265,9 @@ private extension RemoteSessionAttributes.Status {
             return .secondary
         }
         switch self {
-        case .connected: return .green
+        case .connected: return .pultWidgetConnected
         case .connecting: return .pultWidgetWarning
-        case .failed: return .red
+        case .failed: return .pultWidgetDanger
         }
     }
 

@@ -29,9 +29,9 @@ struct ConnectionStatusControl: View {
             return PultDesign.warning
         }
         switch state {
-        case .connected: return .green
+        case .connected: return PultDesign.connected
         case .connecting: return PultDesign.warning
-        case .failed: return .red
+        case .failed: return PultDesign.danger
         case .disconnected: return .secondary
         }
     }

@@ -404,9 +404,9 @@ private struct DiscoveryStatusPresentation {
         var color: Color {
             switch self {
             case .neutral: .secondary
-            case .success: .green
+            case .success: PultDesign.connected
             case .warning: PultDesign.warning
-            case .error: .red
+            case .error: PultDesign.danger
             }
         }
     }
@@ -461,7 +461,7 @@ private struct DeviceReadinessPresentation {
         title: "Reachable",
         detail: nil,
         systemImage: "checkmark.circle.fill",
-        color: .green
+        color: PultDesign.connected
     )
 
     static let pairingRequired = Self(
@@ -475,7 +475,7 @@ private struct DeviceReadinessPresentation {
         title: "Paired",
         detail: nil,
         systemImage: "checkmark.seal.fill",
-        color: .green
+        color: PultDesign.connected
     )
 
     static func unavailable(_ message: String) -> Self {
@@ -483,7 +483,7 @@ private struct DeviceReadinessPresentation {
             title: "Unavailable",
             detail: message,
             systemImage: "exclamationmark.triangle.fill",
-            color: .red
+            color: PultDesign.danger
         )
     }
 }

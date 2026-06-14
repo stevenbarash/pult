@@ -208,7 +208,7 @@ struct RemoteQuickCommand: Identifiable {
                     title: isConnected ? "Reconnect" : "Connect",
                     subtitle: isPaired ? "\(deviceName) is ready for a fresh session." : "Pair \(deviceName) before connecting.",
                     systemImage: "arrow.clockwise",
-                    tint: .green,
+                    tint: PultDesign.connected,
                     scope: .setup,
                     aliases: ["retry", "redial", "wake", "session"],
                     isEnabled: isPaired,
@@ -234,7 +234,7 @@ struct RemoteQuickCommand: Identifiable {
                     title: "Diagnostics",
                     subtitle: "Review reachability, session state, and validation.",
                     systemImage: "stethoscope",
-                    tint: .cyan,
+                    tint: PultDesign.utility,
                     scope: .setup,
                     aliases: ["validation", "status", "debug", "reachability"],
                     isEnabled: true,
@@ -332,11 +332,11 @@ struct RemoteQuickCommand: Identifiable {
     private static func tint(for key: RemoteKey) -> Color {
         switch key {
         case .power:
-            .red
-        case .volumeUp, .volumeDown, .mute, .search:
-            .cyan
-        case .voiceSearch, .playPause, .rewind, .fastForward:
-            .pultAccent
+            PultDesign.danger
+        case .volumeUp, .volumeDown, .mute:
+            PultDesign.utility
+        case .search, .voiceSearch, .playPause, .rewind, .fastForward:
+            PultDesign.accent
         default:
             .primary
         }
