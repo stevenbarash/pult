@@ -34,6 +34,14 @@ struct PairingView: View {
             default: nil
             }
         }
+        .sensoryFeedback(trigger: model.pairingCodeError) { _, new in
+            new != nil ? SensoryFeedback.error : nil
+        }
+        .onChange(of: model.pairingCodeError) { _, new in
+            // Clear the entered code when a wrong-code error appears so the
+            // field is empty and ready for the fresh code shown on the TV.
+            if new != nil { code = "" }
+        }
         .task {
             await model.beginPairing()
         }
@@ -139,15 +147,33 @@ struct PairingView: View {
                     .multilineTextAlignment(.leading)
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
-                Text("\(deviceName) is showing a 6-character code right now.")
-                    .font(PultTypography.bodySmall)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(3)
-                    .minimumScaleFactor(0.82)
+                if let codeError = model.pairingCodeError {
+                    Label(codeError, systemImage: "exclamationmark.circle.fill")
+                        .font(PultTypography.captionStrong)
+                        .foregroundStyle(PultDesign.warning)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.82)
+                        .accessibilityLabel("Error: \(codeError)")
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                } else {
+                    Text("\(deviceName) is showing a 6-character code right now.")
+                        .font(PultTypography.bodySmall)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.82)
+                        .transition(.opacity)
+                }
             }
+            .animation(pairingPhaseAnimation, value: model.pairingCodeError != nil)
 
             PairingCodeField(code: $code, onComplete: submit)
+                .onChange(of: code) { _, _ in
+                    if model.pairingCodeError != nil {
+                        model.clearPairingCodeError()
+                    }
+                }
 
             PairingCodeHelpRow()
 

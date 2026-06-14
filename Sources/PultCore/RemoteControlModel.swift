@@ -14,6 +14,11 @@ public final class RemoteControlModel {
     public private(set) var selectedDevice: DeviceRecord?
     public private(set) var pairingState: PairingState = .idle
 
+    /// Non-nil while the user is on the code-entry screen after a bad code.
+    /// Cleared when re-establish pairing fails (the failure screen takes over)
+    /// or when the user starts fresh code entry.
+    public private(set) var pairingCodeError: String?
+
     private let identityProvider: any ClientIdentityProviding
     private let makePairingTransport: @Sendable () -> any RemoteTransport
     private var pairingSession: PairingSession?
@@ -178,7 +183,7 @@ public final class RemoteControlModel {
     public func beginPairing() async {
         guard let selectedDevice else { return }
         await pairingSession?.cancel()
-
+        pairingCodeError = nil
         pairingState = .connecting
         let pairing = PairingSession(transport: makePairingTransport())
         pairingSession = pairing
@@ -211,13 +216,53 @@ public final class RemoteControlModel {
         do {
             try await pairing.submit(code: code)
             pairingState = .paired
+            pairingCodeError = nil
             if let selectedDevice {
                 discovery.markPaired(selectedDevice)
                 self.selectedDevice = discovery.devices.first(where: { $0.id == selectedDevice.id }) ?? selectedDevice
             }
         } catch {
-            pairingState = .failed(Self.describe(error))
             await pairing.cancel()
+            if Self.isBadCodeError(error) {
+                // The TV aborted the session and will now show a fresh code.
+                // Stay in the code-entry experience: show an inline error and
+                // transparently re-establish pairing so the new code is live.
+                let inlineMessage = "Incorrect code — enter the new code shown on your TV."
+                await beginPairing()
+                // beginPairing() either landed in .waitingForCode (success) or
+                // .failed (TV unreachable). Only surface the inline error in the
+                // success case; the failure screen handles the rest.
+                if pairingState == .waitingForCode {
+                    pairingCodeError = inlineMessage
+                } else {
+                    pairingCodeError = nil
+                }
+            } else {
+                pairingCodeError = nil
+                pairingState = .failed(Self.describe(error))
+            }
+        }
+    }
+
+    /// Returns true for errors that mean the user entered the wrong code and
+    /// the TV has aborted the session. Both cases are recoverable by starting
+    /// a fresh pairing session.
+    ///
+    /// - `PairingSecretError.checkByteMismatch`: local validation — the first
+    ///   two hex digits of the entered code must equal the first byte of the
+    ///   SHA-256 secret; if they don't, the code is obviously wrong and nothing
+    ///   was sent to the TV.
+    /// - `PairingSessionError.rejected(.badSecret)`: the TV received the secret
+    ///   and returned status 402, meaning it considers the code wrong. The TV
+    ///   will abort and display a new code.
+    private static func isBadCodeError(_ error: Error) -> Bool {
+        switch error {
+        case PairingSecretError.checkByteMismatch:
+            return true
+        case PairingSessionError.rejected(let status) where status == .badSecret:
+            return true
+        default:
+            return false
         }
     }
 
@@ -225,6 +270,13 @@ public final class RemoteControlModel {
         await pairingSession?.cancel()
         pairingSession = nil
         pairingState = .idle
+        pairingCodeError = nil
+    }
+
+    /// Clears the inline bad-code error message, called when the user starts
+    /// editing a new code after a wrong-code rejection.
+    public func clearPairingCodeError() {
+        pairingCodeError = nil
     }
 
     private static func describe(_ error: Error) -> String {
