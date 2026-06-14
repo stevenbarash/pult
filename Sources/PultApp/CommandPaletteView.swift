@@ -24,48 +24,69 @@ struct CommandPaletteView: View {
         }
     }
 
+    /// Commands grouped by scope for display when not searching.
+    private var groupedSections: [(scope: RemoteCommandScope, commands: [RemoteQuickCommand])] {
+        RemoteCommandScope.allCases.compactMap { s in
+            let cmds = commands.filter { $0.scope == s }
+            return cmds.isEmpty ? nil : (scope: s, commands: cmds)
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
+                // Scope picker
                 Section {
                     Picker("Command Type", selection: $scope) {
-                        ForEach(RemoteCommandScope.allCases) { scope in
-                            Label(scope.title, systemImage: scope.systemImage)
-                                .tag(scope)
+                        ForEach(RemoteCommandScope.allCases) { s in
+                            Label(s.title, systemImage: s.systemImage)
+                                .tag(s)
                         }
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                 }
 
-                Section {
-                    if visibleCommands.isEmpty {
-                        ContentUnavailableView(
-                            "No Commands",
-                            systemImage: "command",
-                            description: Text("Try another command, app, or setup action.")
-                        )
-                    } else {
-                        ForEach(visibleCommands) { command in
-                            Button {
-                                dismiss()
-                                onCommand(command)
-                            } label: {
-                                CommandPaletteRow(command: command)
+                // Results
+                if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && scope == .all {
+                    // Grouped view when browsing (no search query, showing all)
+                    ForEach(groupedSections, id: \.scope) { group in
+                        Section {
+                            ForEach(group.commands) { command in
+                                commandRow(command)
                             }
-                            .buttonStyle(.plain)
-                            .disabled(!command.isEnabled)
+                        } header: {
+                            Label(group.scope.title, systemImage: group.scope.systemImage)
                         }
                     }
-                } header: {
-                    Text(sectionTitle)
+                } else {
+                    // Flat filtered list
+                    Section {
+                        if visibleCommands.isEmpty {
+                            ContentUnavailableView(
+                                "No Commands",
+                                systemImage: "command",
+                                description: Text("Try another command, app, or setup action.")
+                            )
+                        } else {
+                            ForEach(visibleCommands) { command in
+                                commandRow(command)
+                            }
+                        }
+                    } header: {
+                        Text(sectionTitle)
+                    }
                 }
             }
+            #if os(iOS)
+            .listStyle(.insetGrouped)
+            #endif
             .navigationTitle("Command")
             .scrollContentBackground(.hidden)
             .background { RemoteBackground() }
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             #endif
             .searchable(text: $query, placement: .toolbar, prompt: "Search commands")
             .toolbar {
@@ -77,10 +98,25 @@ struct CommandPaletteView: View {
         .preferredColorScheme(.dark)
     }
 
+    // MARK: - Row
+
+    private func commandRow(_ command: RemoteQuickCommand) -> some View {
+        Button {
+            dismiss()
+            onCommand(command)
+        } label: {
+            CommandPaletteRow(command: command)
+        }
+        .buttonStyle(.plain)
+        .disabled(!command.isEnabled)
+    }
+
     private var sectionTitle: String {
         scope == .all ? "Actions" : scope.title
     }
 }
+
+// MARK: - Row view
 
 private struct CommandPaletteRow: View {
     let command: RemoteQuickCommand
@@ -110,7 +146,7 @@ private struct CommandPaletteRow: View {
 
             Image(systemName: command.trailingSystemImage)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.tertiary)
                 .accessibilityHidden(true)
         }
         .contentShape(.rect)
@@ -118,6 +154,8 @@ private struct CommandPaletteRow: View {
         .accessibilityLabel("\(command.title). \(command.subtitle)")
     }
 }
+
+// MARK: - Scope
 
 enum RemoteCommandScope: String, CaseIterable, Identifiable {
     case all
@@ -145,6 +183,8 @@ enum RemoteCommandScope: String, CaseIterable, Identifiable {
         }
     }
 }
+
+// MARK: - Command model
 
 enum RemoteQuickCommandAction {
     case key(RemoteKey)
@@ -288,22 +328,14 @@ struct RemoteQuickCommand: Identifiable {
     }
 
     private static func keyboardSubtitle(hasDevice: Bool, isPaired: Bool) -> String {
-        if !hasDevice {
-            return "Add a TV before typing."
-        }
-        if !isPaired {
-            return "Pair the selected TV before typing."
-        }
+        if !hasDevice { return "Add a TV before typing." }
+        if !isPaired { return "Pair the selected TV before typing." }
         return "Type into the focused TV text field."
     }
 
     private static func appSubtitle(hasDevice: Bool, isPaired: Bool) -> String {
-        if !hasDevice {
-            return "Add a TV before launching apps."
-        }
-        if !isPaired {
-            return "Pair the selected TV before launching apps."
-        }
+        if !hasDevice { return "Add a TV before launching apps." }
+        if !isPaired { return "Pair the selected TV before launching apps." }
         return "Open saved app links on the selected TV."
     }
 
@@ -313,7 +345,6 @@ struct RemoteQuickCommand: Identifiable {
             .back, .home, .voiceSearch, .search, .playPause, .rewind, .fastForward,
             .volumeUp, .volumeDown, .mute, .power
         ]
-
         return keys.map { key in
             RemoteQuickCommand(
                 id: "key-\(key.rawValue)",

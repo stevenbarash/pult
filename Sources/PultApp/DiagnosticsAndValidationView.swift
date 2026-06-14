@@ -165,7 +165,7 @@ struct DiagnosticsAndValidationView: View {
             .scrollContentBackground(.hidden)
             .background { RemoteBackground() }
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

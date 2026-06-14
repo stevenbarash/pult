@@ -36,30 +36,13 @@ struct TextEntryView: View {
                 if model.selectedDevice == nil {
                     noTVSelectedState
                 } else {
-                    ScrollView {
-                        VStack(spacing: 18) {
-                            header
-                            fieldFocusPrompt
-                            editorSection
-                            suggestions
-                            controls
-                            errorMessage
-                        }
-                        .frame(maxWidth: 520)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 24)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    #if os(iOS)
-                    .scrollDismissesKeyboard(.interactively)
-                    #endif
+                    mainContent
                 }
             }
             .background { RemoteBackground() }
             .navigationTitle("TV Keyboard")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -76,6 +59,8 @@ struct TextEntryView: View {
         }
     }
 
+    // MARK: - Empty state
+
     private var noTVSelectedState: some View {
         ContentUnavailableView {
             Label("No TV Selected", systemImage: "tv.badge.wifi.slash")
@@ -87,139 +72,144 @@ struct TextEntryView: View {
         }
     }
 
-    private var header: some View {
-        let status = model.session.textFieldStatus
-        let title = status?.label.isEmpty == false ? status?.label ?? "TV Text Field" : "TV Text Field"
-        let detail = switch model.session.connectionState {
-        case .connected where status != nil:
-            status?.value.isEmpty == false ? "Editing current TV text" : "Ready"
-        case .connected:
-            "Waiting for a focused text field"
-        case .connecting:
-            "Connecting"
-        case .disconnected:
-            "Disconnected"
-        case let .failed(message):
-            message
+    // MARK: - Main content
+
+    private var mainContent: some View {
+        List {
+            // Status row — inline, calm
+            Section {
+                statusRow
+            }
+
+            // Draft editor
+            Section {
+                editorField
+                draftActions
+                editorStatus
+            } header: {
+                Text("Draft")
+            }
+
+            // Field focus guidance (shown when connected but no TV field focused)
+            if model.session.connectionState == .connected && model.session.textFieldStatus == nil {
+                Section {
+                    Label {
+                        Text("Open search or another text field on the TV first. You can draft here now, then send when the TV field is focused.")
+                            .font(PultTypography.bodySmall)
+                            .foregroundStyle(.secondary)
+                    } icon: {
+                        Image(systemName: "keyboard.badge.ellipsis")
+                            .foregroundStyle(PultDesign.warning)
+                    }
+                    .accessibilityElement(children: .combine)
+                }
+            }
+
+            // Quick queries
+            Section {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Self.suggestedQueries, id: \.self) { query in
+                            quickQueryButton(query)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+            } header: {
+                Label("Quick Queries", systemImage: "magnifyingglass")
+            }
+
+            // Send + key controls
+            Section {
+                keyControls
+                sendButton
+            } header: {
+                Text("Actions")
+            }
+
+            // Error / recovery
+            if let actionFailure {
+                Section {
+                    errorRow(actionFailure)
+                }
+            }
         }
+        #if os(iOS)
+        .listStyle(.insetGrouped)
+        #endif
+        .scrollContentBackground(.hidden)
+        #if os(iOS)
+        .scrollDismissesKeyboard(.interactively)
+        #endif
+    }
+
+    // MARK: - Status row
+
+    private var statusRow: some View {
+        let status = model.session.textFieldStatus
+        let title = status?.label.isEmpty == false ? (status?.label ?? "TV Text Field") : "TV Text Field"
+        let detail: String = {
+            switch model.session.connectionState {
+            case .connected where status != nil:
+                return status?.value.isEmpty == false ? "Editing current TV text" : "Ready"
+            case .connected:
+                return "Waiting for a focused text field"
+            case .connecting:
+                return "Connecting"
+            case .disconnected:
+                return "Disconnected"
+            case let .failed(message):
+                return message
+            }
+        }()
 
         return HStack(spacing: 12) {
             Image(systemName: status == nil ? "keyboard.badge.ellipsis" : "keyboard")
-                .font(.title2.weight(.semibold))
+                .font(.title3.weight(.semibold))
                 .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(status == nil ? PultDesign.warning : Color.pultAccent)
-                .frame(width: 46, height: 46)
-                .glassEffect(
-                    .regular.tint((status == nil ? PultDesign.warning : Color.pultAccent).opacity(0.16)),
-                    in: .circle
-                )
+                .frame(width: 32)
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(PultTypography.displaySmall)
+                    .font(.headline)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.82)
                 Text(detail)
-                    .font(PultTypography.caption)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
-                    .minimumScaleFactor(0.82)
             }
-            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .glassEffect(.regular.tint(.pultAccent.opacity(0.10)), in: .rect(cornerRadius: 28))
-        .pultGlassFallback(in: RoundedRectangle(cornerRadius: 28, style: .continuous), tint: .pultAccent)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title). \(detail)")
     }
 
-    private var editorSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            textField
-            currentTVText
-            draftActions
-            editorStatus
-        }
-        .padding(14)
-        .pultContentSurface(
-            in: RoundedRectangle(cornerRadius: 28, style: .continuous),
-            tint: .pultAccent
-        )
-        .accessibilityElement(children: .contain)
-        .accessibilityAction(named: "Send Draft") {
-            sendText()
-        }
-        .accessibilityAction(named: "Clear Draft") {
-            clearDraft()
-        }
-        #if canImport(UIKit)
-        .accessibilityAction(named: "Paste Clipboard") {
-            importClipboard()
-        }
-        #endif
-    }
+    // MARK: - Editor
 
-    @ViewBuilder
-    private var fieldFocusPrompt: some View {
-        if model.session.connectionState == .connected && model.session.textFieldStatus == nil {
-            Label {
-                Text("Open search or another text field on the TV first. You can draft here now, then send when the TV field is focused.")
-                    .font(PultTypography.bodySmall)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(4)
-                    .minimumScaleFactor(0.86)
-            } icon: {
-                Image(systemName: "keyboard.badge.ellipsis")
-                    .foregroundStyle(PultDesign.warning)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .pultContentSurface(
-                in: RoundedRectangle(cornerRadius: 18, style: .continuous),
-                tint: PultDesign.warning
-            )
-            .accessibilityElement(children: .combine)
-        }
-    }
-
-    private var textField: some View {
-        TextField("Search or type for TV", text: $text, axis: .vertical)
-            .focused($isFocused)
-            #if os(iOS)
-            .textInputAutocapitalization(.never)
-            .submitLabel(.send)
-            #endif
-            .autocorrectionDisabled()
-            .lineLimit(3...6)
-            .padding(14)
-            .background {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(PultDesign.surface)
-            }
-            .overlay {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(PultDesign.hairline, lineWidth: 1)
-            }
-            .onSubmit(sendText)
-            .onChange(of: text) { _, _ in
-                if actionFailure != nil {
-                    actionFailure = nil
+    private var editorField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("Search or type for TV", text: $text, axis: .vertical)
+                .focused($isFocused)
+                #if os(iOS)
+                .textInputAutocapitalization(.never)
+                .submitLabel(.send)
+                #endif
+                .autocorrectionDisabled()
+                .lineLimit(3...6)
+                .onSubmit(sendText)
+                .onChange(of: text) { _, _ in
+                    if actionFailure != nil { actionFailure = nil }
                 }
-            }
-            .accessibilityLabel("Text for TV")
-            .accessibilityHint(textFieldAccessibilityHint)
-    }
+                .accessibilityLabel("Text for TV")
+                .accessibilityHint(textFieldAccessibilityHint)
 
-    @ViewBuilder
-    private var currentTVText: some View {
-        if let status = model.session.textFieldStatus, !status.value.isEmpty {
-            Label("TV: \(status.value)", systemImage: "text.cursor")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-                .minimumScaleFactor(0.84)
-                .accessibilityLabel("Current TV text: \(status.value)")
+            if let status = model.session.textFieldStatus, !status.value.isEmpty {
+                Label("TV: \(status.value)", systemImage: "text.cursor")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.84)
+                    .accessibilityLabel("Current TV text: \(status.value)")
+            }
         }
     }
 
@@ -229,7 +219,7 @@ struct TextEntryView: View {
             Button("Paste", systemImage: "doc.on.clipboard") {
                 importClipboard()
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.bordered)
             .controlSize(.small)
             .accessibilityHint("Imports clipboard text into the draft.")
             #endif
@@ -237,7 +227,7 @@ struct TextEntryView: View {
             Button("Clear", systemImage: "xmark.circle") {
                 clearDraft()
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.bordered)
             .controlSize(.small)
             .disabled(text.isEmpty)
             .accessibilityHint("Clears the keyboard draft.")
@@ -260,7 +250,6 @@ struct TextEntryView: View {
                 Spacer(minLength: 8)
                 sendReadinessLabel
             }
-
             VStack(alignment: .leading, spacing: 6) {
                 fieldStatusLabel
                 sendReadinessLabel
@@ -284,38 +273,7 @@ struct TextEntryView: View {
             .minimumScaleFactor(0.82)
     }
 
-    private var suggestions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Quick Queries", systemImage: "magnifyingglass")
-                .font(PultTypography.captionStrong)
-                .foregroundStyle(.secondary)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(Self.suggestedQueries, id: \.self) { query in
-                        quickQueryButton(query)
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .contain)
-    }
-
-    private var controls: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) {
-                keyControls
-                sendButton
-            }
-
-            VStack(spacing: 10) {
-                keyControls
-                sendButton
-            }
-        }
-    }
+    // MARK: - Controls
 
     private var keyControls: some View {
         HStack(spacing: 10) {
@@ -338,53 +296,89 @@ struct TextEntryView: View {
     }
 
     private var sendButton: some View {
-        Button("Send", systemImage: "paperplane.fill", action: sendText)
-            .buttonStyle(.glassProminent)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .disabled(!canSendText)
-            .accessibilityLabel("Send text")
-            .accessibilityHint(sendButtonHint)
-    }
-
-    @ViewBuilder
-    private var errorMessage: some View {
-        if let actionFailure {
-            VStack(alignment: .leading, spacing: 8) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(actionFailure.message)
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(PultDesign.warning)
-                    Text(actionFailure.guidance)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Keyboard error: \(actionFailure.message). \(actionFailure.guidance)")
-
-                HStack(spacing: 8) {
-                    Button("Reconnect", systemImage: "arrow.clockwise") {
-                        reconnect()
-                    }
-                    .buttonStyle(.glass)
-                    .controlSize(.small)
-
-                    Button("Try Again", systemImage: "paperplane") {
-                        sendText()
-                    }
-                    .buttonStyle(.glass)
-                    .controlSize(.small)
-                    .disabled(text.isEmpty)
-                }
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .pultContentSurface(
-                in: RoundedRectangle(cornerRadius: 18, style: .continuous),
-                tint: PultDesign.warning
-            )
-            .accessibilityElement(children: .contain)
+        Button(action: sendText) {
+            Label("Send to TV", systemImage: "paperplane.fill")
+                .frame(maxWidth: .infinity, minHeight: 44)
         }
+        .buttonStyle(.borderedProminent)
+        .tint(.pultAccent)
+        .disabled(!canSendText)
+        .accessibilityLabel("Send text")
+        .accessibilityHint(sendButtonHint)
     }
+
+    // MARK: - Error row
+
+    private func errorRow(_ failure: RemoteCommandFailure) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(failure.message)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(PultDesign.warning)
+                Text(failure.guidance)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Keyboard error: \(failure.message). \(failure.guidance)")
+
+            HStack(spacing: 8) {
+                Button("Reconnect", systemImage: "arrow.clockwise") {
+                    reconnect()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Button("Try Again", systemImage: "paperplane") {
+                    sendText()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(text.isEmpty)
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .contain)
+    }
+
+    // MARK: - Quick query button
+
+    private func quickQueryButton(_ query: String) -> some View {
+        Button {
+            useSuggestion(query)
+        } label: {
+            Text(query)
+                .font(.callout.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.84)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .contentShape(.capsule)
+        }
+        .buttonStyle(.bordered)
+        .accessibilityLabel("Use \(query)")
+        .accessibilityHint("Replaces the keyboard draft.")
+    }
+
+    private func keyboardKeyButton(
+        systemImage: String,
+        label: String,
+        hint: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.headline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.bordered)
+        .disabled(!canSendKeys)
+        .accessibilityLabel(label)
+        .accessibilityHint(hint)
+    }
+
+    // MARK: - Computed status strings
 
     private var fieldStatusText: String {
         switch model.session.connectionState {
@@ -431,7 +425,6 @@ struct TextEntryView: View {
         guard !text.isEmpty else {
             return "Add text first"
         }
-
         switch model.session.connectionState {
         case .connected where model.session.textFieldStatus != nil:
             return nil
@@ -464,41 +457,7 @@ struct TextEntryView: View {
         return "Sends \(label.lowercased()) to the TV."
     }
 
-    private func quickQueryButton(_ query: String) -> some View {
-        Button {
-            useSuggestion(query)
-        } label: {
-            Text(query)
-                .font(.callout.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.84)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 44)
-                .contentShape(.capsule)
-        }
-        .buttonStyle(.glass)
-        .pultGlassFallback(in: Capsule(), tint: .pultAccent)
-        .accessibilityLabel("Use \(query)")
-        .accessibilityHint("Replaces the keyboard draft.")
-    }
-
-    private func keyboardKeyButton(
-        systemImage: String,
-        label: String,
-        hint: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.headline.weight(.semibold))
-                .frame(width: 48, height: 44)
-                .contentShape(.rect)
-        }
-        .buttonStyle(.glass)
-        .disabled(!canSendKeys)
-        .accessibilityLabel(label)
-        .accessibilityHint(hint)
-    }
+    // MARK: - Actions
 
     private func useSuggestion(_ query: String) {
         text = query
@@ -520,7 +479,6 @@ struct TextEntryView: View {
             isFocused = true
             return
         }
-
         text = clipboardText
         actionFailure = nil
         isFocused = true
@@ -533,7 +491,6 @@ struct TextEntryView: View {
             isFocused = true
             return
         }
-
         Task { @MainActor in
             let sent = await model.session.sendText(payload)
             if sent {

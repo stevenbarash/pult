@@ -45,10 +45,12 @@ struct FavoriteAppLauncherView: View {
     var body: some View {
         NavigationStack {
             List {
+                // Connection status
                 Section {
                     launcherStatusRow
                 }
 
+                // Favorites list
                 Section {
                     if visibleFavorites.isEmpty {
                         ContentUnavailableView(
@@ -83,6 +85,7 @@ struct FavoriteAppLauncherView: View {
                     Text(favoritesFooterText)
                 }
 
+                // Add custom link
                 Section {
                     TextField("App name", text: $title)
                         #if os(iOS)
@@ -101,6 +104,7 @@ struct FavoriteAppLauncherView: View {
                     Text("Custom Link")
                 }
 
+                // Status / error feedback
                 if let statusMessage {
                     Section {
                         Text(statusMessage)
@@ -115,11 +119,14 @@ struct FavoriteAppLauncherView: View {
                     }
                 }
             }
+            #if os(iOS)
+            .listStyle(.insetGrouped)
+            #endif
             .navigationTitle("Favorite Apps")
             .scrollContentBackground(.hidden)
             .background { RemoteBackground() }
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.large)
             #endif
             .searchable(text: $favoriteSearchText, placement: .toolbar, prompt: "Search apps")
             .toolbar {
@@ -140,19 +147,15 @@ struct FavoriteAppLauncherView: View {
         }
     }
 
-    private var favoritesFooterText: String {
-        if isFilteringFavorites {
-            return "Clear search to reorder favorites. App links are sent over the Android TV Remote Service app-link command."
-        }
-        return "App links are sent over the Android TV Remote Service app-link command. TVs decide whether a link opens an installed app or a browser."
-    }
+    // MARK: - Status row
 
     private var launcherStatusRow: some View {
         HStack(spacing: 12) {
             Image(systemName: canLaunch ? "link.circle.fill" : "link.badge.plus")
-                .font(.title2.weight(.semibold))
+                .font(.title3.weight(.semibold))
+                .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(canLaunch ? PultDesign.connected : PultDesign.warning)
-                .frame(width: 34)
+                .frame(width: 30)
             VStack(alignment: .leading, spacing: 3) {
                 Text(model.selectedDevice?.name ?? "No TV Selected")
                     .font(.headline)
@@ -183,6 +186,15 @@ struct FavoriteAppLauncherView: View {
         }
     }
 
+    private var favoritesFooterText: String {
+        if isFilteringFavorites {
+            return "Clear search to reorder favorites. App links are sent over the Android TV Remote Service app-link command."
+        }
+        return "App links are sent over the Android TV Remote Service app-link command. TVs decide whether a link opens an installed app or a browser."
+    }
+
+    // MARK: - Favorite row
+
     private func favoriteButton(for favorite: FavoriteAppLink) -> some View {
         Button {
             launch(favorite)
@@ -199,6 +211,35 @@ struct FavoriteAppLauncherView: View {
             }
         }
     }
+
+    // MARK: - Error row
+
+    private func actionFailureRow(_ failure: RemoteCommandFailure) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(failure.message)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(PultDesign.warning)
+                Text(failure.guidance)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Launch error: \(failure.message). \(failure.guidance)")
+
+            HStack(spacing: 8) {
+                Button("Reconnect", systemImage: "arrow.clockwise") {
+                    reconnect()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+        .padding(.vertical, 4)
+        .accessibilityElement(children: .contain)
+    }
+
+    // MARK: - Actions
 
     private func launch(_ favorite: FavoriteAppLink) {
         guard let url = favorite.url else {
@@ -237,31 +278,6 @@ struct FavoriteAppLauncherView: View {
         }
     }
 
-    private func actionFailureRow(_ failure: RemoteCommandFailure) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(failure.message)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(PultDesign.warning)
-                Text(failure.guidance)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Launch error: \(failure.message). \(failure.guidance)")
-
-            HStack(spacing: 8) {
-                Button("Reconnect", systemImage: "arrow.clockwise") {
-                    reconnect()
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            }
-        }
-        .padding(.vertical, 4)
-        .accessibilityElement(children: .contain)
-    }
-
     private func addFavorite() {
         guard let url = normalizedNewURL else { return }
         let favorite = FavoriteAppLink(
@@ -297,6 +313,8 @@ struct FavoriteAppLauncherView: View {
     }
 }
 
+// MARK: - Row
+
 private struct FavoriteAppLinkRow: View {
     let favorite: FavoriteAppLink
     let isLaunching: Bool
@@ -305,6 +323,7 @@ private struct FavoriteAppLinkRow: View {
         HStack(spacing: 12) {
             Image(systemName: favorite.systemImage)
                 .font(.title3.weight(.semibold))
+                .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(.tint)
                 .frame(width: 30)
             VStack(alignment: .leading, spacing: 3) {
@@ -324,7 +343,7 @@ private struct FavoriteAppLinkRow: View {
             } else {
                 Image(systemName: "play.fill")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
             }
         }
@@ -333,6 +352,8 @@ private struct FavoriteAppLinkRow: View {
         .accessibilityLabel("Launch \(favorite.title)")
     }
 }
+
+// MARK: - Model
 
 struct FavoriteAppLink: Codable, Hashable, Identifiable {
     var id: UUID
@@ -374,6 +395,8 @@ struct FavoriteAppLink: Codable, Hashable, Identifiable {
         return URL(string: candidate)
     }
 }
+
+// MARK: - Store
 
 struct FavoriteAppLinkStore {
     private let key = "pult.favoriteAppLinks"
