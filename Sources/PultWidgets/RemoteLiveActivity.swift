@@ -146,7 +146,11 @@ private struct HybridRemoteLayout: View {
             DPadCluster()
 
             VStack(spacing: 6) {
-                RemoteActivityStatusColumn(context: context, showsMessage: false, compact: true)
+                RemoteActivityStatusColumn(
+                    context: context,
+                    showsMessage: context.state.status == .failed,
+                    compact: true
+                )
                 KeyButton(command: .power, size: 30)
                 EndActivityButton()
             }
@@ -182,7 +186,11 @@ private struct MediaRemoteLayout: View {
     var body: some View {
         HStack(alignment: .center, spacing: 6) {
             VStack(spacing: 6) {
-                RemoteActivityStatusColumn(context: context, showsMessage: false, compact: true)
+                RemoteActivityStatusColumn(
+                    context: context,
+                    showsMessage: context.state.status == .failed,
+                    compact: true
+                )
                 HStack(spacing: 6) {
                     KeyButton(command: .power, size: 30)
                     EndActivityButton()
@@ -230,8 +238,8 @@ private struct RemoteActivityStatusColumn: View {
                 Text(message)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.78)
+                    .lineLimit(compact ? 1 : 2)
+                    .minimumScaleFactor(compact ? 0.7 : 0.78)
                     .multilineTextAlignment(.center)
             }
         }

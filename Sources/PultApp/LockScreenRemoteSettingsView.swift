@@ -73,34 +73,36 @@ struct LockScreenRemoteSettingsView: View {
         systemImage: String,
         detail: String
     ) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: systemImage)
-                .font(.title3.weight(.semibold))
-                .symbolRenderingMode(.hierarchical)
-                .foregroundStyle(layout == selectedLayout ? Color.pultAccent : Color.secondary)
-                .frame(width: 28)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(layout.displayTitle)
-                    .font(.body.weight(.semibold))
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer(minLength: 0)
-
-            if layout == selectedLayout {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(Color.pultAccent)
-                    .accessibilityLabel("Selected")
-            }
-        }
-        .contentShape(.rect)
-        .onTapGesture {
+        Button {
             selectedLayout = layout
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: systemImage)
+                    .font(.title3.weight(.semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(layout == selectedLayout ? Color.pultAccent : Color.secondary)
+                    .frame(width: 28)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(layout.displayTitle)
+                        .font(.body.weight(.semibold))
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer(minLength: 0)
+
+                if layout == selectedLayout {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.pultAccent)
+                        .accessibilityHidden(true)
+                }
+            }
         }
+        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(layout.displayTitle). \(detail)")
+        .accessibilityValue(layout == selectedLayout ? "Selected" : "Not selected")
     }
 }
