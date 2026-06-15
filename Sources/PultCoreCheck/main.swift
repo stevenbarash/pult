@@ -262,6 +262,29 @@ expect(
 )
 expect(runnerValidationRun.summary == "0 passed, 1 failed, 0 need review, 10 skipped", "validation runner summary failed")
 
+let layoutDefaults = UserDefaults(suiteName: "pult.corecheck.remote-activity-layout")!
+layoutDefaults.removePersistentDomain(forName: "pult.corecheck.remote-activity-layout")
+let layoutStore = RemoteActivityLayoutStore(defaults: layoutDefaults)
+expect(layoutStore.load() == .hybrid, "remote activity layout should default to hybrid")
+layoutDefaults.set("future-layout", forKey: RemoteActivityLayoutStore.key)
+expect(layoutStore.load() == .hybrid, "invalid remote activity layout should fall back to hybrid")
+layoutStore.save(.media)
+expect(
+    layoutDefaults.string(forKey: RemoteActivityLayoutStore.key) == RemoteActivityLayout.media.rawValue,
+    "remote activity layout should persist raw value"
+)
+expect(layoutStore.load() == .media, "remote activity layout save failed")
+expect(RemoteActivityLayout.hybrid.displayTitle == "Hybrid", "remote activity layout hybrid title failed")
+expect(RemoteActivityLayout.media.displayTitle == "Media", "remote activity layout title failed")
+expect(
+    RemoteActivityLayout.hybrid.settingsDescription.contains("D-pad"),
+    "remote activity layout hybrid settings copy failed"
+)
+expect(
+    RemoteActivityLayout.media.settingsDescription.contains("Playback"),
+    "remote activity layout media settings copy failed"
+)
+
 var protoEncoder = ProtobufEncoder()
 protoEncoder.appendVarint(field: 1, 2)
 protoEncoder.appendVarint(field: 2, 200)

@@ -134,3 +134,34 @@ func discoveryPersistsSelection() {
 
     #expect(memory.selectedID == device.id)
 }
+
+@Test
+func remoteActivityLayoutDefaultsToHybridWhenMissingOrInvalid() {
+    let suite = makeSuite("pult.tests.remote-activity-layout-default")
+    let store = RemoteActivityLayoutStore(defaults: suite)
+
+    #expect(store.load() == .hybrid)
+
+    suite.set("future-layout", forKey: RemoteActivityLayoutStore.key)
+
+    #expect(store.load() == .hybrid)
+}
+
+@Test
+func remoteActivityLayoutPersistsMediaSelection() {
+    let suite = makeSuite("pult.tests.remote-activity-layout-save")
+    let store = RemoteActivityLayoutStore(defaults: suite)
+
+    store.save(.media)
+
+    #expect(suite.string(forKey: RemoteActivityLayoutStore.key) == RemoteActivityLayout.media.rawValue)
+    #expect(store.load() == .media)
+}
+
+@Test
+func remoteActivityLayoutProvidesSettingsCopy() {
+    #expect(RemoteActivityLayout.hybrid.displayTitle == "Hybrid")
+    #expect(RemoteActivityLayout.media.displayTitle == "Media")
+    #expect(RemoteActivityLayout.hybrid.settingsDescription.contains("D-pad"))
+    #expect(RemoteActivityLayout.media.settingsDescription.contains("Playback"))
+}
