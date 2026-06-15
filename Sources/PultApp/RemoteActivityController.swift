@@ -12,14 +12,18 @@ private let logger = Logger(subsystem: "app.pult", category: "live-activity")
 final class RemoteActivityController {
     static let shared = RemoteActivityController()
 
-    private init() {}
+    private let layoutStore: RemoteActivityLayoutStore
+
+    private init(layoutStore: RemoteActivityLayoutStore = RemoteActivityLayoutStore()) {
+        self.layoutStore = layoutStore
+    }
 
     func startOrUpdate(for device: DeviceRecord, state: ConnectionState, message: String? = nil) async {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
             logger.error("startOrUpdate skipped: Live Activities are disabled for the app")
             return
         }
-        let content = Self.content(for: state, message: message)
+        let content = content(for: state, message: message)
         if let activity = Self.activity(for: device.id) {
             await activity.update(content)
             return
@@ -44,7 +48,19 @@ final class RemoteActivityController {
     func noteOutcome(_ outcome: HeadlessCommandOutcome, device: DeviceRecord, state: ConnectionState) async {
         guard let activity = Self.activity(for: device.id) else { return }
         let message: String? = if case let .failed(text) = outcome { text } else { nil }
-        await activity.update(Self.content(for: state, message: message))
+        await activity.update(content(for: state, message: message))
+    }
+
+    func refreshLayout() async {
+        let layout = layoutStore.load()
+        for activity in Activity<RemoteSessionAttributes>.activities {
+            let state = activity.content.state
+            await activity.update(Self.content(
+                status: state.status,
+                message: state.message,
+                layout: layout
+            ))
+        }
     }
 
     /// Switching TVs replaces the lock-screen remote; if the new TV never
@@ -66,16 +82,31 @@ final class RemoteActivityController {
         Activity<RemoteSessionAttributes>.activities.first { $0.attributes.deviceID == deviceID }
     }
 
-    private static func content(for state: ConnectionState, message: String?) -> ActivityContent<RemoteSessionAttributes.ContentState> {
+    private func content(for state: ConnectionState, message: String?) -> ActivityContent<RemoteSessionAttributes.ContentState> {
+        let layout = layoutStore.load()
         let contentState: RemoteSessionAttributes.ContentState = switch state {
-        case .connected: .init(status: .connected, message: message)
-        case .connecting: .init(status: .connecting, message: message)
-        case .disconnected: .init(status: .failed, message: message ?? "Disconnected")
-        case let .failed(text): .init(status: .failed, message: message ?? text)
+        case .connected: .init(status: .connected, message: message, layout: layout)
+        case .connecting: .init(status: .connecting, message: message, layout: layout)
+        case .disconnected: .init(status: .failed, message: message ?? "Disconnected", layout: layout)
+        case let .failed(text): .init(status: .failed, message: message ?? text, layout: layout)
         }
+        return Self.content(state: contentState)
+    }
+
+    private static func content(
+        status: RemoteSessionAttributes.Status,
+        message: String?,
+        layout: RemoteActivityLayout
+    ) -> ActivityContent<RemoteSessionAttributes.ContentState> {
+        content(state: .init(status: status, message: message, layout: layout))
+    }
+
+    private static func content(
+        state: RemoteSessionAttributes.ContentState
+    ) -> ActivityContent<RemoteSessionAttributes.ContentState> {
         // Without presses for a long stretch the remote is probably done;
         // let the system render it stale rather than confidently live.
-        return ActivityContent(state: contentState, staleDate: Date(timeIntervalSinceNow: 4 * 60 * 60))
+        ActivityContent(state: state, staleDate: Date(timeIntervalSinceNow: 4 * 60 * 60))
     }
 }
 #endif
