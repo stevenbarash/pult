@@ -195,6 +195,7 @@ enum RemoteQuickCommandAction {
     case manageDevices
     case favoriteApps
     case diagnostics
+    case lockScreenSettings
 }
 
 struct RemoteQuickCommand: Identifiable {
@@ -279,6 +280,19 @@ struct RemoteQuickCommand: Identifiable {
                     aliases: ["validation", "status", "debug", "reachability"],
                     isEnabled: true,
                     action: .diagnostics
+                )
+            )
+            commands.append(
+                RemoteQuickCommand(
+                    id: "lock-screen-settings",
+                    title: "Lock Screen Remote",
+                    subtitle: "Choose Hybrid or Media controls for the Live Activity.",
+                    systemImage: "lock.rectangle.stack",
+                    tint: .pultAccent,
+                    scope: .setup,
+                    aliases: ["live activity", "lock screen", "widget", "media layout", "hybrid layout"],
+                    isEnabled: true,
+                    action: .lockScreenSettings
                 )
             )
             commands.append(

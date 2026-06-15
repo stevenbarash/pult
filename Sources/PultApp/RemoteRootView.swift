@@ -5,6 +5,7 @@ import PultCore
 struct RemoteRootView: View {
     @Bindable var model: RemoteControlModel
     @State private var presentedSheet: RemoteSheet?
+    @State private var dismissedSheet: RemoteSheet?
     @State private var selectedValidationClaimState: DeviceValidationClaimState = .unvalidated
     @State private var lastCommandFailure: RemoteCommandFailure?
     @State private var lastCommandKey: RemoteKey?
@@ -73,12 +74,7 @@ struct RemoteRootView: View {
         .task(id: model.discovery.devices) {
             await RemoteIntentIndex.refreshDevices(model.discovery.devices)
         }
-        .sheet(item: $presentedSheet, onDismiss: {
-            // Pairing marks the device as paired; pick up the connection
-            // without requiring a manual connect tap.
-            loadSelectedValidationState()
-            Task { await autoConnectIfNeeded() }
-        }, content: sheetContent)
+        .sheet(item: presentedSheetBinding, onDismiss: handleSheetDismiss, content: sheetContent)
     }
 
     @ViewBuilder
@@ -115,6 +111,7 @@ struct RemoteRootView: View {
         if model.selectedDevice != nil {
             Button("Favorite Apps…", systemImage: "square.grid.2x2", action: presentFavoriteApps)
             Button("Diagnostics…", systemImage: "stethoscope", action: presentDiagnostics)
+            Button("Lock Screen Remote…", systemImage: "lock.rectangle.stack", action: presentLockScreenSettings)
             Button("Pair Again…", systemImage: "link", action: presentPairing)
         }
         if !model.discovery.devices.isEmpty {
@@ -134,6 +131,18 @@ struct RemoteRootView: View {
         )
     }
 
+    private var presentedSheetBinding: Binding<RemoteSheet?> {
+        Binding(
+            get: { presentedSheet },
+            set: { newValue in
+                if case nil = newValue, let presentedSheet {
+                    dismissedSheet = presentedSheet
+                }
+                presentedSheet = newValue
+            }
+        )
+    }
+
     private enum RemoteSheet: Identifiable {
         case addDevice
         case textEntry
@@ -141,6 +150,7 @@ struct RemoteRootView: View {
         case manageDevices
         case favoriteApps
         case diagnostics
+        case lockScreenSettings
         case commandPalette
 
         var id: Self { self }
@@ -167,6 +177,9 @@ struct RemoteRootView: View {
         case .diagnostics:
             DiagnosticsAndValidationView(model: model)
                 .presentationSizing(.page)
+        case .lockScreenSettings:
+            LockScreenRemoteSettingsView(onLayoutChange: refreshLockScreenRemoteLayout)
+                .presentationSizing(.form)
         case .commandPalette:
             CommandPaletteView(
                 device: model.selectedDevice,
@@ -207,8 +220,28 @@ struct RemoteRootView: View {
         presentedSheet = .diagnostics
     }
 
+    private func presentLockScreenSettings() {
+        presentedSheet = .lockScreenSettings
+    }
+
+    private func handleSheetDismiss() {
+        let sheet = dismissedSheet
+        dismissedSheet = nil
+
+        switch sheet {
+        case .lockScreenSettings, .commandPalette:
+            break
+        case .addDevice, .textEntry, .pairing, .manageDevices, .favoriteApps, .diagnostics, nil:
+            // Pairing marks the device as paired; pick up the connection
+            // without requiring a manual connect tap. Keep the legacy refresh
+            // path for operational sheets that may alter devices or state.
+            loadSelectedValidationState()
+            Task { await autoConnectIfNeeded() }
+        }
+    }
+
     private func runPaletteCommand(_ command: RemoteQuickCommand) {
-        presentedSheet = nil
+        dismissPresentedSheet()
         switch command.action {
         case let .key(key):
             send(key)
@@ -224,9 +257,18 @@ struct RemoteRootView: View {
             presentSheetAfterDismiss(.favoriteApps)
         case .diagnostics:
             presentSheetAfterDismiss(.diagnostics)
+        case .lockScreenSettings:
+            presentSheetAfterDismiss(.lockScreenSettings)
         case .connect:
             connectSelectedDevice()
         }
+    }
+
+    private func dismissPresentedSheet() {
+        if let presentedSheet {
+            dismissedSheet = presentedSheet
+        }
+        presentedSheet = nil
     }
 
     private func presentSheetAfterDismiss(_ sheet: RemoteSheet) {
@@ -270,6 +312,13 @@ struct RemoteRootView: View {
 
     private func loadSelectedValidationState() {
         selectedValidationClaimState = validationReportStore.validationClaimState(for: model.selectedDevice?.id)
+    }
+
+    @MainActor
+    private func refreshLockScreenRemoteLayout() async {
+        #if canImport(ActivityKit) && os(iOS)
+        await RemoteActivityController.shared.refreshLayout()
+        #endif
     }
 
     @MainActor
