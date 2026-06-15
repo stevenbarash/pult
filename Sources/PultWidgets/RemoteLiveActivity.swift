@@ -1,5 +1,6 @@
 import ActivityKit
 import AppIntents
+import PultCore
 import SwiftUI
 import WidgetKit
 
@@ -29,14 +30,7 @@ struct RemoteLiveActivity: Widget {
                     KeyButton(command: .playPause, size: 34)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    HStack(spacing: 18) {
-                        KeyButton(command: .back)
-                        KeyButton(command: .rewind)
-                        KeyButton(command: .playPause)
-                        KeyButton(command: .fastForward)
-                        KeyButton(command: .mute)
-                    }
-                    .frame(maxWidth: .infinity)
+                    DynamicIslandCommandRow(layout: context.state.layout)
                 }
             } compactLeading: {
                 Image(systemName: "tv")
@@ -56,10 +50,12 @@ struct RemoteLiveActivity: Widget {
 
 /// The lock-screen mini-remote. The 160 pt system cap is the scarce
 /// dimension, so there is no full-width header row: the d-pad and command
-/// grid run the full height (3 rows × 44 pt hit cells = 132 + 12 padding
-/// ≈ 144 pt) and the status strip, power, and dismiss live in a slim
-/// flexible column between them. Width soaks up the device differences —
-/// the device name truncates first on compact phones.
+/// grid run nearly the full height. Promoted rows can include 48 pt hit
+/// cells, so the medium layouts are budgeted around 150-152 pt with 4 pt
+/// vertical padding per side, leaving a little room under the cap. The
+/// status strip, power, and dismiss live in a slim flexible column between
+/// them, and width soaks up the device differences: the device name truncates
+/// first on compact phones.
 private struct LockScreenRemoteView: View {
     @Environment(\.activityFamily) private var activityFamily
 
@@ -108,59 +104,154 @@ private struct SupplementalMediumRemoteView: View {
     let context: ActivityViewContext<RemoteSessionAttributes>
 
     var body: some View {
-        HStack(alignment: .center, spacing: 6) {
-            DPadCluster()
-            VStack(spacing: 10) {
-                VStack(spacing: 4) {
-                    Text(context.attributes.deviceName)
-                        .font(.caption2.weight(.bold))
-                        .lineLimit(1)
-                    StatusBadge(status: context.state.status, isStale: context.isStale)
-                }
-                if let message = context.state.message {
-                    Text(message)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                }
-                Spacer(minLength: 0)
-                KeyButton(command: .power, size: 30)
-                Button(intent: EndRemoteSessionIntent()) {
-                    Image(systemName: "xmark")
-                        .widgetAccentedRenderingMode(.fullColor)
-                        .font(.system(size: 12, weight: .bold))
-                        .frame(width: 30, height: 30)
-                        .background(.white.opacity(0.12), in: .circle)
-                        .frame(width: 44, height: 44)
-                        .contentShape(.rect)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Hide remote")
-                .accessibilityHint("Disconnects and removes the Lock Screen remote")
+        switch context.state.layout {
+        case .hybrid:
+            HybridRemoteLayout(context: context)
+        case .media:
+            MediaRemoteLayout(context: context)
+        }
+    }
+}
+
+private struct DynamicIslandCommandRow: View {
+    let layout: RemoteActivityLayout
+
+    private var commands: [RemoteKeyOption] {
+        switch layout {
+        case .hybrid:
+            [.back, .volumeDown, .playPause, .mute, .volumeUp, .home]
+        case .media:
+            [.rewind, .volumeDown, .playPause, .mute, .volumeUp, .fastForward]
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(commands, id: \.rawValue) { command in
+                KeyButton(
+                    command: command,
+                    size: command == .playPause || command == .mute ? 38 : 32
+                )
             }
-            .frame(maxWidth: .infinity)
-            Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct HybridRemoteLayout: View {
+    let context: ActivityViewContext<RemoteSessionAttributes>
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 3) {
+            DPadCluster()
+
+            VStack(spacing: 6) {
+                RemoteActivityStatusColumn(context: context, showsMessage: false, compact: true)
+                KeyButton(command: .power, size: 30)
+                EndActivityButton()
+            }
+            .frame(width: 48)
+
+            Grid(horizontalSpacing: 1, verticalSpacing: 1) {
                 GridRow {
-                    KeyButton(command: .back)
-                    KeyButton(command: .home)
-                    KeyButton(command: .playPause)
+                    KeyButton(command: .volumeDown, size: 36)
+                    KeyButton(command: .playPause, size: 40)
+                    KeyButton(command: .volumeUp, size: 36)
                 }
                 GridRow {
-                    KeyButton(command: .volumeDown)
-                    KeyButton(command: .mute)
-                    KeyButton(command: .volumeUp)
+                    KeyButton(command: .back, size: 30)
+                    KeyButton(command: .mute, size: 40)
+                    KeyButton(command: .home, size: 30)
                 }
                 GridRow {
-                    KeyButton(command: .rewind)
+                    KeyButton(command: .rewind, size: 28)
                     EmptyCell()
-                    KeyButton(command: .fastForward)
+                    KeyButton(command: .fastForward, size: 28)
                 }
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 4)
         .foregroundStyle(.white)
+    }
+}
+
+private struct MediaRemoteLayout: View {
+    let context: ActivityViewContext<RemoteSessionAttributes>
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 6) {
+            VStack(spacing: 6) {
+                RemoteActivityStatusColumn(context: context, showsMessage: false, compact: true)
+                HStack(spacing: 6) {
+                    KeyButton(command: .power, size: 30)
+                    EndActivityButton()
+                }
+            }
+            .frame(maxWidth: .infinity)
+
+            Grid(horizontalSpacing: 2, verticalSpacing: 2) {
+                GridRow {
+                    KeyButton(command: .rewind, size: 30)
+                    KeyButton(command: .playPause, size: 40)
+                    KeyButton(command: .fastForward, size: 30)
+                }
+                GridRow {
+                    KeyButton(command: .volumeDown, size: 38)
+                    KeyButton(command: .mute, size: 40)
+                    KeyButton(command: .volumeUp, size: 38)
+                }
+                GridRow {
+                    KeyButton(command: .back, size: 30)
+                    KeyButton(command: .select, size: 30)
+                    KeyButton(command: .home, size: 30)
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .foregroundStyle(.white)
+    }
+}
+
+private struct RemoteActivityStatusColumn: View {
+    let context: ActivityViewContext<RemoteSessionAttributes>
+    var showsMessage = true
+    var compact = false
+
+    var body: some View {
+        VStack(spacing: compact ? 3 : 4) {
+            Text(context.attributes.deviceName)
+                .font(.caption2.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(compact ? 0.7 : 1)
+            StatusBadge(status: context.state.status, isStale: context.isStale, compact: compact)
+            if showsMessage, let message = context.state.message {
+                Text(message)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.78)
+                    .multilineTextAlignment(.center)
+            }
+        }
+    }
+}
+
+private struct EndActivityButton: View {
+    var body: some View {
+        Button(intent: EndRemoteSessionIntent()) {
+            Image(systemName: "xmark")
+                .widgetAccentedRenderingMode(.fullColor)
+                .font(.system(size: 12, weight: .bold))
+                .frame(width: 30, height: 30)
+                .background(.white.opacity(0.12), in: .circle)
+                .frame(width: 44, height: 44)
+                .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Hide remote")
+        .accessibilityHint("Disconnects and removes the Lock Screen remote")
     }
 }
 
