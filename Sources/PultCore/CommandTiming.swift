@@ -4,6 +4,7 @@ extension Duration {
     /// This duration as a floating-point count of milliseconds.
     var millisecondsValue: Double {
         let c = components
+        // attoseconds (1e-18 s) → milliseconds: divide by 1e15.
         return Double(c.seconds) * 1_000 + Double(c.attoseconds) / 1_000_000_000_000_000
     }
 }

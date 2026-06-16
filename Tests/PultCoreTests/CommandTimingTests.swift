@@ -22,7 +22,7 @@ func coldTimingSummaryAndDetailFormatWithPhases() {
 }
 
 @Test
-func warmTimingReportsReusedSocketAndFreshLaunchHeuristic() {
+func timingFormattingCoversColdFreshLaunchAndWarm() {
     let timing = CommandTiming(
         key: "home",
         startedAt: Date(timeIntervalSince1970: 2_000),
@@ -54,4 +54,5 @@ func warmTimingReportsReusedSocketAndFreshLaunchHeuristic() {
 func durationMillisecondsValueConvertsSecondsAndFraction() {
     #expect(Duration.milliseconds(250).millisecondsValue == 250)
     #expect(Duration.seconds(2).millisecondsValue == 2_000)
+    #expect(abs((Duration.milliseconds(250) + Duration.microseconds(500)).millisecondsValue - 250.5) < 0.0001)
 }
