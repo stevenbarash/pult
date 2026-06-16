@@ -23,22 +23,40 @@ public final class RemoteControlModel {
     private let makePairingTransport: @Sendable () -> any RemoteTransport
     private var pairingSession: PairingSession?
     private var headlessTask: Task<HeadlessCommandOutcome, Never>?
+    private let timingRecorder: any CommandTimingRecording
 
     private enum RemoteAction: Equatable, Sendable {
         case key(RemoteKey, KeyAction)
         case appLink(URL)
+
+        var timingKey: String {
+            switch self {
+            case let .key(key, _): key.rawValue
+            case .appLink: "appLink"
+            }
+        }
+    }
+
+    /// Reference flag the inner command body flips when it dials, so the
+    /// measurement wrapper can classify WARM vs COLD without changing control
+    /// flow. MainActor-isolated, single-threaded use.
+    private final class DialFlag {
+        var dialed: Bool
+        init(_ dialed: Bool) { self.dialed = dialed }
     }
 
     public init(
         discovery: DeviceDiscovery = DeviceDiscovery(),
         session: RemoteSession = RemoteSession(),
         identityProvider: any ClientIdentityProviding = KeychainClientIdentityStore.shared,
-        makePairingTransport: @escaping @Sendable () -> any RemoteTransport = { NetworkRemoteTransport() }
+        makePairingTransport: @escaping @Sendable () -> any RemoteTransport = { NetworkRemoteTransport() },
+        timingRecorder: any CommandTimingRecording = CommandTimingRecorder()
     ) {
         self.discovery = discovery
         self.session = session
         self.identityProvider = identityProvider
         self.makePairingTransport = makePairingTransport
+        self.timingRecorder = timingRecorder
         self.selectedDevice = discovery.devices.first(where: { $0.id == discovery.selectedDeviceID })
             ?? discovery.devices.first
         discovery.selectedDeviceID = selectedDevice?.id
@@ -121,13 +139,51 @@ public final class RemoteControlModel {
         await executeRemoteAction(.key(key, .tap), staleAfter: 30)
     }
 
+    /// Measurement wrapper around the command body. When timing is disabled it
+    /// calls straight through with zero added work. When enabled it records one
+    /// `CommandTiming` per command, classifying WARM vs COLD. It never changes
+    /// the command result or control flow.
+    private func executeRemoteAction(
+        _ action: RemoteAction,
+        staleAfter idleTimeout: TimeInterval
+    ) async -> HeadlessCommandOutcome {
+        guard timingRecorder.isEnabled else {
+            return await runRemoteAction(action, staleAfter: idleTimeout, dialFlag: nil)
+        }
+
+        let willDial = selectedDevice.map {
+            session.needsConnectionRefresh(for: $0, idleTimeout: idleTimeout)
+        } ?? true
+        let flag = DialFlag(willDial)
+        let startedAt = Date()
+        let clockStart = ContinuousClock.now
+
+        let outcome = await runRemoteAction(action, staleAfter: idleTimeout, dialFlag: flag)
+
+        let totalMs = clockStart.duration(to: .now).millisecondsValue
+        timingRecorder.record(
+            CommandTiming(
+                key: action.timingKey,
+                startedAt: startedAt,
+                totalMs: totalMs,
+                dialed: flag.dialed,
+                tcpTlsMs: flag.dialed ? session.lastTCPTLSMilliseconds : nil,
+                configureMs: flag.dialed ? session.lastConfigureMilliseconds : nil,
+                processAgeMs: ProcessClock.ageMilliseconds,
+                succeeded: outcome == .sent
+            )
+        )
+        return outcome
+    }
+
     /// Ensures a fresh connection, sends once, then redials and retries once
     /// when a connected-looking session fails during the send. The retry limit
     /// prevents Lock Screen / Control Center commands from looping forever
     /// against a TV that is asleep or on another network.
-    private func executeRemoteAction(
+    private func runRemoteAction(
         _ action: RemoteAction,
-        staleAfter idleTimeout: TimeInterval
+        staleAfter idleTimeout: TimeInterval,
+        dialFlag: DialFlag?
     ) async -> HeadlessCommandOutcome {
         guard let selectedDevice, selectedDevice.isPaired else {
             return .failed("Open Pult and pair a TV first.")
@@ -149,6 +205,7 @@ public final class RemoteControlModel {
         // In the rare window where delivery succeeded but the read loop flagged
         // death concurrently, a duplicated d-pad/volume key is harmless.
         await session.connect(to: selectedDevice)
+        dialFlag?.dialed = true
         guard session.connectionState == .connected else {
             return .failed("Could not reach \(selectedDevice.name).")
         }
