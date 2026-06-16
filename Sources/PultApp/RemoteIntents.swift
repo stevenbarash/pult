@@ -289,6 +289,7 @@ struct SendRemoteKeyIntent: HeadlessRemoteIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        _ = ProcessClock.start
         let model = SharedRemote.model
         guard model.selectIfAvailable(device) else {
             return .result(dialog: RemoteIntentDialogs.deviceUnavailable)
@@ -342,6 +343,7 @@ struct StartRemoteSessionIntent: HeadlessRemoteIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        _ = ProcessClock.start
         // The process name tells us whether the system honored the
         // LiveActivityIntent app-process routing (it must say "Pult", not
         // "PultWidgets") — the key diagnostic for control presses.

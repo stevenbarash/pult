@@ -7,6 +7,10 @@ struct PultApp: App {
     // from the Lock Screen and the on-screen remote drive one session.
     private let model = SharedRemote.model
 
+    init() {
+        _ = ProcessClock.start
+    }
+
     var body: some Scene {
         WindowGroup {
             RemoteRootView(model: model)

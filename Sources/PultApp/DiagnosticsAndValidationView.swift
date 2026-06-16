@@ -16,9 +16,12 @@ struct DiagnosticsAndValidationView: View {
     @State private var latestSuccessfulValidation: PhysicalDeviceValidationRecord?
     @State private var validationClaimState: DeviceValidationClaimState = .unvalidated
     @State private var isRunningValidation = false
+    @State private var isMeasuringTimings = CommandTimingRecorder.isEnabled()
+    @State private var recentTimings: [CommandTiming] = []
 
     private let store = UserDefaultsValidationChecklistStore()
     private let validationStore = UserDefaultsValidationReportStore()
+    private let timingLog = CommandTimingLog.appGroup()
 
     var body: some View {
         NavigationStack {
@@ -54,6 +57,45 @@ struct DiagnosticsAndValidationView: View {
                     }
                 } header: {
                     Text("Session")
+                }
+
+                Section {
+                    Toggle("Record Command Timing", isOn: $isMeasuringTimings)
+                        .onChange(of: isMeasuringTimings) { _, enabled in
+                            CommandTimingRecorder.setEnabled(enabled)
+                            if enabled { statusMessage = "Recording command timing." }
+                        }
+
+                    DiagnosticValueRow(
+                        "Volume Pushes",
+                        value: volumePushSummary,
+                        systemImage: "speaker.wave.2"
+                    )
+
+                    if recentTimings.isEmpty {
+                        DiagnosticValueRow(
+                            "Recent Commands",
+                            value: isMeasuringTimings ? "None yet" : "Recording off",
+                            systemImage: "clock"
+                        )
+                    } else {
+                        ForEach(recentTimings) { timing in
+                            CommandTimingRow(timing: timing)
+                        }
+                    }
+
+                    Button("Refresh Timings", systemImage: "arrow.clockwise") {
+                        reloadTimings()
+                    }
+                    Button("Clear Timings", systemImage: "trash", role: .destructive) {
+                        timingLog?.clear()
+                        recentTimings = []
+                        statusMessage = "Cleared command timings."
+                    }
+                } header: {
+                    Text("Command Timing")
+                } footer: {
+                    Text("Measurement only. Turn on, run the lock-screen test protocol, then read the WARM/COLD breakdown here. Turn off when done.")
                 }
 
                 Section {
@@ -176,6 +218,7 @@ struct DiagnosticsAndValidationView: View {
         .preferredColorScheme(.dark)
         .task(id: model.selectedDevice?.id) {
             loadPersistedValidationState()
+            reloadTimings()
         }
     }
 
@@ -265,6 +308,18 @@ struct DiagnosticsAndValidationView: View {
     private func format(_ date: Date?) -> String {
         guard let date else { return "Not yet" }
         return date.formatted(date: .omitted, time: .standard)
+    }
+
+    private var volumePushSummary: String {
+        let count = model.session.volumePushCount
+        guard count > 0, let volume = model.session.volumeStatus else {
+            return "None yet"
+        }
+        return "\(count) · last \(volume.level)/\(volume.maximum)\(volume.muted ? " muted" : "")"
+    }
+
+    private func reloadTimings() {
+        recentTimings = timingLog?.recent(limit: 12) ?? []
     }
 
     private func validationSummary(_ validation: PhysicalDeviceValidationRecord) -> String {
@@ -615,6 +670,45 @@ private struct DiagnosticValueRow: View {
                 .lineLimit(3)
         }
         .accessibilityElement(children: .combine)
+    }
+}
+
+private struct CommandTimingRow: View {
+    let timing: CommandTiming
+
+    private var iconName: String {
+        if !timing.succeeded { return "exclamationmark.triangle" }
+        return timing.dialed ? "bolt.slash" : "bolt.fill"
+    }
+
+    private var iconColor: Color {
+        if !timing.succeeded { return PultDesign.danger }
+        return timing.dialed ? PultDesign.warning : PultDesign.connected
+    }
+
+    private var detail: String {
+        timing.succeeded ? timing.detailLine : timing.detailLine + " · failed"
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: iconName)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(iconColor)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(timing.summaryLine)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer(minLength: 8)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(timing.key), \(timing.classification), \(Int(timing.totalMs.rounded())) milliseconds\(timing.succeeded ? "" : ", failed")")
     }
 }
 
