@@ -230,6 +230,43 @@ func switchingDevicesAbandonsStaleHandshake() async {
     #expect(session.device?.id == deviceB.id)
 }
 
+@MainActor
+@Test
+func connectRecordsDialPhaseDurations() async {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+
+    await session.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+
+    #expect(session.connectionState == .connected)
+    #expect(session.lastTCPTLSMilliseconds != nil)
+    #expect(session.lastConfigureMilliseconds != nil)
+}
+
+@MainActor
+@Test
+func volumePushUpdatesCountAndTimestamp() async throws {
+    let volumeFrame = Data([0x92, 0x03, 0x06, 0x30, 0x64, 0x38, 0x19, 0x40, 0x01])
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+    await transport.enqueueIncoming(framer.frame(volumeFrame))
+
+    await session.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+
+    // The read loop delivers the volume frame shortly after configure.
+    for _ in 0..<100 where session.volumePushCount == 0 {
+        try await Task.sleep(for: .milliseconds(5))
+    }
+
+    #expect(session.volumePushCount == 1)
+    #expect(session.volumeStatus?.level == 25)
+    #expect(session.volumeStatus?.maximum == 100)
+    #expect(session.volumeStatus?.muted == true)
+    #expect(session.lastVolumePushAt != nil)
+}
+
 private func remoteImeShowRequestFrame(counter: Int) -> Data {
     var status = ProtobufEncoder()
     status.appendVarint(field: 1, UInt64(counter))

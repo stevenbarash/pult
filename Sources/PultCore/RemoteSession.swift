@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 public enum ConnectionState: Equatable, Sendable {
     case disconnected
@@ -45,6 +46,15 @@ public final class RemoteSession {
     public private(set) var lastReceivedAt: Date?
     /// Last time a framed protocol message was sent to the TV.
     public private(set) var lastSentAt: Date?
+    /// TCP + mutual-TLS handshake duration (ms) of the most recent dial.
+    /// Measurement only — nil until the first dial.
+    public private(set) var lastTCPTLSMilliseconds: Double?
+    /// Protocol `configure` handshake duration (ms) of the most recent dial.
+    public private(set) var lastConfigureMilliseconds: Double?
+    /// Count of inbound volume pushes seen this app run (measurement readout).
+    public private(set) var volumePushCount: Int = 0
+    /// When the most recent volume push arrived.
+    public private(set) var lastVolumePushAt: Date?
 
     private let transport: RemoteTransport
     private let codec: RemoteMessageCodec
@@ -54,6 +64,7 @@ public final class RemoteSession {
     private var connectTask: Task<Void, Never>?
     private var connectAttempt = 0
     private var nextImeCounter = 0
+    private let dialSignposter = OSSignposter(subsystem: "app.pult", category: "dial")
 
     public init(
         transport: RemoteTransport = NetworkRemoteTransport(),
@@ -84,6 +95,8 @@ public final class RemoteSession {
         volumeStatus = nil
         lastReceivedAt = nil
         lastSentAt = nil
+        lastTCPTLSMilliseconds = nil
+        lastConfigureMilliseconds = nil
         nextImeCounter = 0
 
         // The handshake runs in its own task so cancellation of the caller
@@ -99,16 +112,25 @@ public final class RemoteSession {
         await transport.close()
         guard attempt == connectAttempt else { return }
 
+        let tcpState = dialSignposter.beginInterval("tcp+tls")
+        let tcpStart = ContinuousClock.now
         do {
             try await transport.connect(to: device.host, port: device.commandPort)
         } catch {
+            dialSignposter.endInterval("tcp+tls", tcpState)
             fail(with: "Could not reach \(device.host): \(describe(error))", attempt: attempt)
             return
         }
+        lastTCPTLSMilliseconds = tcpStart.duration(to: .now).millisecondsValue
+        dialSignposter.endInterval("tcp+tls", tcpState)
         guard attempt == connectAttempt else { return }
 
         startReadLoop(attempt: attempt)
+        let configureState = dialSignposter.beginInterval("configure")
+        let configureStart = ContinuousClock.now
         await waitForConfiguration(attempt: attempt)
+        lastConfigureMilliseconds = configureStart.duration(to: .now).millisecondsValue
+        dialSignposter.endInterval("configure", configureState)
     }
 
     public func disconnect() {
@@ -232,6 +254,8 @@ public final class RemoteSession {
             break
         case let .volume(level, maximum, muted):
             volumeStatus = RemoteVolumeStatus(level: level, maximum: maximum, muted: muted)
+            volumePushCount += 1
+            lastVolumePushAt = .now
         case let .textFieldStatus(status):
             if textFieldStatus?.counter != status.counter {
                 nextImeCounter = 0
