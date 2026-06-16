@@ -38,7 +38,7 @@ public struct CommandTimingRecorder: CommandTimingRecording {
         guard isEnabled else { return }
         signposter.emitEvent(
             "command",
-            "\(timing.key, privacy: .public) \(timing.classification, privacy: .public) \(Int(timing.totalMs.rounded()))ms"
+            "\(timing.key, privacy: .public) \(timing.classification, privacy: .public) \(Int(timing.totalMs.rounded()), privacy: .public)ms"
         )
         log?.record(timing)
     }
