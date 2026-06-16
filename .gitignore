@@ -3,5 +3,6 @@ build/
 .DS_Store
 .swiftpm/
 .xcodebuildmcp/
+.superpowers/
 **/xcuserdata/**/UserInterfaceState.xcuserstate
 **/.DS_Store
