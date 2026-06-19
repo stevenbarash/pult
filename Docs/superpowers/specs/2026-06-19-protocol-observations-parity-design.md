@@ -34,6 +34,8 @@ The initial design was too broad in three places:
 Implement read-only protocol observation parity:
 
 - Decode inbound `remote_configure.code1` and `remote_configure.device_info`.
+- Decode inbound `remote_set_active.active` when present. If the frame is
+  empty, record an observed set-active request with `active = nil`.
 - Decode inbound `remote_start.started`.
 - Decode inbound `remote_ime_key_inject.app_info`, especially `app_package`
   and optional label, while preserving any text-field status carried in the
@@ -50,8 +52,8 @@ Implement read-only protocol observation parity:
 
 ### Stage 2: Physical Evidence Spike
 
-Use the validated `Android.local` setup to capture real behavior before changing
-product semantics:
+Use the known-working `Android.local` setup to capture real behavior before
+changing product semantics:
 
 - Does `remote_start` arrive on every connect?
 - Does `remote_start(false)` ever appear, and what TV/user-visible state matches
@@ -65,7 +67,9 @@ product semantics:
 
 ### Stage 3: Product Promotion
 
-Promote only observations that prove stable and useful:
+Promote only observations that prove stable and useful through a separate
+product spec and repeated evidence across sessions. Promotion remains per-TV and
+per-build by default.
 
 - A text-entry surface may use IME app info to say which app/text field is
   asking for input.
@@ -79,7 +83,7 @@ Promote only observations that prove stable and useful:
 - Changing Live Activity controls.
 - Adding Cast, MediaSession, ADB, or now-playing metadata.
 - Persisting protocol observations as validation claims.
-- Sending app package names to telemetry.
+- Sending IME app package/label or configure device-info values to telemetry.
 - Changing configure/set-active response behavior in Stage 1.
 
 ## Architecture
@@ -90,22 +94,32 @@ Promote only observations that prove stable and useful:
 payloads and encodes responses, but does not decide whether an observation is
 user-visible, current, validated, or product-worthy.
 
-Add protocol DTOs in `PultCore`:
+Add protocol DTOs in `PultCore` with explicit fields:
 
-- `RemoteDeviceInfo`: model, vendor, package name, app version, raw unknown
-  values where retained.
-- `RemoteConfigureRequest`: raw code, optional device info.
-- `RemoteAppInfo`: package, label, counter, and raw fields retained when useful.
-- `RemoteImeKeyInjectObservation`: optional app info plus optional text-field
-  status.
-- `RemoteImeBatchEditObservation`: IME counter, field counter, optional edit
-  object parsed from the frame.
-- `RemoteProtocolCode`: raw code plus decoded feature labels where known.
+- `RemoteDeviceInfo`: `model`, `vendor`, `unknown1`, `unknown2`,
+  `packageName`, `appVersion`.
+- `RemoteConfigureRequest`: `code: RemoteProtocolCode?`,
+  `deviceInfo: RemoteDeviceInfo?`.
+- `RemoteSetActiveRequest`: `active: RemoteProtocolCode?`.
+- `RemoteAppInfo`: `counter`, `unknownInt2`, `unknownInt3`,
+  `unknownString4`, `unknownInt7`, `unknownInt8`, `label`, `appPackage`,
+  `unknownInt13`.
+- `RemoteImeKeyInjectObservation`: `appInfo: RemoteAppInfo?`,
+  `textFieldStatus: RemoteTextFieldStatus?`.
+- `RemoteImeObjectObservation`: `start`, `end`, `value`.
+- `RemoteEditInfoObservation`: `insert`,
+  `textFieldStatus: RemoteImeObjectObservation?`.
+- `RemoteImeBatchEditObservation`: `imeCounter`, `fieldCounter`,
+  `editInfo: [RemoteEditInfoObservation]`, and any derived
+  `textFieldStatus: RemoteTextFieldStatus?` built from the latest edit object
+  when preserving current text-entry behavior.
+- `RemoteProtocolCode`: `rawValue`, decoded raw feature-bit labels, and
+  `unknownBits`.
 
 Update `IncomingRemoteMessage` to carry payloads:
 
 - `.configure(RemoteConfigureRequest)`
-- `.setActive`
+- `.setActive(RemoteSetActiveRequest)`
 - `.pingRequest(UInt64)`
 - `.started(Bool)`
 - `.volume(level:maximum:muted:)`
@@ -119,6 +133,11 @@ Update `IncomingRemoteMessage` to carry payloads:
 If one IME frame carries both app info and text-field status, the session must
 update both. App info and text state are not mutually exclusive.
 
+Missing protocol scalar fields must remain unobserved, not defaulted into facts.
+`remote_start` emits `.started(false)` only when field 1 is present with varint
+`0`; if field 1 is absent or malformed, return `.other` and do not update
+`remoteStart`. Missing configure and set-active codes remain `nil`, not raw `0`.
+
 ### Feature Codes
 
 Add a small decoder for known raw bits:
@@ -128,19 +147,35 @@ Add a small decoder for known raw bits:
 - `ime = 4`
 - `voice = 8`
 - `unknown1 = 16`
-- `power = 32`
+- `powerCommandCapability = 32`
 - `volume = 64`
 - `appLink = 512`
 
-Stage 1 treats these as diagnostics labels for raw protocol codes. It does not
-replace Pult's current response policy.
+Stage 1 treats these as raw feature-bit labels for protocol-code diagnostics. It
+does not treat the decoded labels as complete support truth and does not replace
+Pult's current response policy. For example, the fixed client response `622`
+does not include the `ping` bit even though Pult currently answers ping
+requests.
 
-Add `RemoteProtocolNegotiator` as a pure type, but start conservatively:
+Add `RemoteProtocolNegotiator` in `PultCore` as a pure value type owned by
+`RemoteSession`, but start conservatively:
 
-- default `clientResponseRawCode = 622`
-- record inbound configure raw code
-- record outbound configure/set-active raw code
-- expose decoded labels for both raw values
+- `static let defaultClientResponseRawCode: UInt64 = 622`
+- `clientResponseCode: RemoteProtocolCode`
+- `makeConfigureResponseObservation(at:deviceID:attempt:)`
+- `makeSetActiveResponseObservation(at:deviceID:attempt:)`
+
+`AndroidTVRemoteMessageCodec` must expose the raw client response code it uses
+for `encodeConfigureResponse()` and `encodeSetActiveResponse()` so diagnostics
+and encoded bytes cannot drift. Stage 1 keeps that value at `622`.
+
+Add `RemoteProtocolNegotiation`:
+
+- `inboundConfigureCode: RemoteProtocolObservation<RemoteProtocolCode>?`
+- `inboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode>?`
+- `outboundConfigureCode: RemoteProtocolObservation<RemoteProtocolCode>?`
+- `outboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode>?`
+- `clientResponsePolicy = fixed622Stage1`
 
 Dynamic `supported intersection requested` negotiation is a later-stage change
 after physical capture proves that changing `622` is safe.
@@ -160,11 +195,13 @@ Add `RemoteSessionProtocolState`:
 - `remoteStart: RemoteProtocolObservation<Bool>?`
 - `appInfo: RemoteProtocolObservation<RemoteAppInfo>?`
 - `deviceInfo: RemoteProtocolObservation<RemoteDeviceInfo>?`
-- `negotiation: RemoteProtocolObservation<RemoteProtocolNegotiation>?`
+- `negotiation: RemoteProtocolNegotiation`
 
-The state is in-memory and connection-scoped. It resets on connect, disconnect,
-and failure. It must not be copied into persisted TV records or validation
-passed areas.
+The state is in-memory and connection-scoped. `protocolState` resets only when a
+new connection attempt increments `connectAttempt`, on `disconnect()`, and
+inside `fail(..., attempt:)` when the failed attempt is current. Joining an
+in-flight connect to the same device must not reset observations. Protocol state
+must not be copied into persisted TV records or validation passed areas.
 
 `RemoteSession` remains the owner because it is already the MainActor observable
 holder for connection state, text-field status, volume status, timestamps, and
@@ -183,16 +220,25 @@ Diagnostics should label both the selected TV and the session TV, and protocol
 observations should appear under the session TV. If there is no active session
 device, the section should say `Not observed this session`.
 
+For Diagnostics, "active session device" means `model.session.device` only while
+`connectionState` is `.connecting` or `.connected`. Failed or disconnected
+sessions show protocol observations as `Not observed this session`, even if
+`RemoteSession.device` still holds the last target.
+
 ## User-Facing Design
 
 Add a new Diagnostics section after `Session`:
 
-- `Protocol Remote Start`: `Observed started at 2:14 PM`, `Observed stopped at
-  2:14 PM`, or `Not observed this session`.
-- `Protocol App Info`: package and optional label, with `from IME key inject`.
+- `Protocol remote_start`: `remote_start.started=true observed at 2:14 PM`,
+  `remote_start.started=false observed at 2:14 PM`, or
+  `Not observed this session`. Do not render this as on/off, awake/asleep,
+  started/stopped, or power state.
+- `IME App Info`: package and optional label observed in
+  `remote_ime_key_inject.app_info`, captioned as `from IME key inject, not a
+  foreground-app feed`.
 - `Protocol Device Info`: model, vendor, package name, app version.
 - `Protocol Configure Code`: inbound raw code plus decoded labels.
-- `Protocol Client Code`: outbound raw code plus decoded labels.
+- `Protocol Client Code`: `configure 622 (...)`, `set-active 622 (...)`.
 
 The language must remain observational:
 
@@ -201,7 +247,17 @@ The language must remain observational:
   rows unless later physical evidence and separate product decisions justify
   that wording.
 
-Copied diagnostics should include the same rows. Validation reports should not.
+Copied diagnostics may include protocol observations only under a separate
+`Protocol Observations (not validation evidence)` block. `validationReportText`,
+`ValidationRunItem`, `ValidationReport.passedAreas`, persisted
+`PhysicalDeviceValidationRecord`, checklist completion, and PostHog validation
+events must not include protocol observation values.
+
+Treat IME app package/label and configure device-info package/model/vendor/version
+as private diagnostic fields. They may be shown in Diagnostics and copied only
+by explicit Copy Diagnostics action. Do not send them to PostHog, OSLog public
+fields, MetricKit, `command_timing_recorded`, `validation_run_completed`, or any
+other analytics event.
 
 ## Documentation Changes
 
@@ -218,8 +274,17 @@ Docs to update during implementation:
 - `Docs/LatencyMeasurementMethodology.md`
 - `Docs/ProductStrategy.md`
 - `Docs/superpowers/specs/2026-06-15-warm-live-session-design.md`
+- `appideas.md`
 - `Docs/ProtocolSources.md`
+- `Docs/Observability.md`
+- `Docs/PhysicalDeviceValidationChecklist.md`
 - `README.md`, if its current scope bullets need a new diagnostics line
+
+Before closing implementation, run:
+
+```sh
+rg -n "current-app|current app|app name|power-state|power/standby|no .*power|no .*app|now-playing" README.md Docs appideas.md
+```
 
 `Docs/ProtocolSources.md` also contains an obsolete sentence that names
 `PlaceholderRemoteMessageCodec` as current deterministic test plumbing. The
@@ -228,15 +293,18 @@ wire codec.
 
 ## Error Handling
 
-Observation decode failures should not break remote command sending.
+Observation subfield decode failures should not break remote command sending.
+Catch malformed optional nested observation payloads locally and treat only that
+optional value as absent.
 
 - Malformed optional subfields become absent optional values.
-- A fully undecodable frame can remain `.other` or `.error` according to current
-  codec behavior.
 - If `remote_ime_key_inject` has app info but malformed text status, preserve
   app info.
 - If `remote_ime_key_inject` has text status but no app info, preserve text
   status.
+- Do not broadly swallow top-level framing or protobuf-reader failures in
+  `RemoteSession`; those keep current failure behavior unless a separate tested
+  change proves masking them is safe.
 - Attempt-scoped state updates must be ignored after a newer connection attempt
   starts.
 - State mutations after `await send(...)` need a fresh attempt check.
@@ -245,12 +313,19 @@ Observation decode failures should not break remote command sending.
 
 Use the repo's narrow checks:
 
-- Codec tests for `remote_configure` payload decoding, device info parsing, IME
-  app info parsing, combined IME app+text-field frames, IME batch counters,
-  `remote_start`, and raw feature-code label decoding.
-- Session tests for state reset on connect/disconnect/fail, attempt scoping,
-  observation timestamps/device IDs, session-vs-selected-device behavior, and
-  preserving existing configure/set-active response bytes.
+- Codec tests for `remote_configure` payload decoding, device info parsing,
+  set-active frames with both empty payload and explicit `active`, IME app info
+  parsing, combined IME app+text-field frames, repeated IME `edit_info` entries
+  with preserved ordering, IME batch counters, `remote_start` present/absent
+  semantics, and raw feature-code label decoding.
+- Session tests for protocol-state reset on new connect attempt, disconnect,
+  and current-attempt failure; no reset when joining an in-flight same-device
+  connect; attempt scoping; observation timestamps/device IDs; and preserving
+  existing configure/set-active response bytes.
+- Selected-vs-session labeling should be covered by a pure diagnostics
+  formatter test if one is introduced. Otherwise, cover it with app build plus
+  copied diagnostics review, because `RemoteSession` has no selected-device
+  concept.
 - Core smoke updates in `Sources/PultCoreCheck/main.swift`.
 - App diagnostics compile coverage through `make build`.
 - `make core-check` for protocol/core changes.
