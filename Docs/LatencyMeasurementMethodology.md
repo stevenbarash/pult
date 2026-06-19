@@ -57,6 +57,11 @@ So in real tap-watch-tap usage, almost every tap finds a **dead socket** and has
 
 **Deep profile (optional):** the build also emits `os_signpost` under subsystem **`app.pult`**, categories **`dial`** (per-phase intervals) and **`command-timing`** (per-command events). With a cabled device, open Instruments → os_signpost for nanosecond-accurate intervals.
 
+**PostHog readout:** when the Xcode app target is built with PostHog configured,
+the same toggle also emits one `command_timing_recorded` event per sample. The
+event carries only public timing fields: command key, WARM/COLD, dialed,
+success, fresh-launch heuristic, and coarse phase milliseconds.
+
 ## 5. How to read results → what to build
 
 The numbers aren't the deliverable; **the decision is.** Map observations to mechanisms:
@@ -87,7 +92,7 @@ The four candidate mechanisms — **warm window** (background-task grace re-arme
 
 ## 8. Caveats
 
-- **Off by default.** The toggle flips an App-Group flag (`pult.measureTimings`). Turn it off when done so it never records for normal users.
+- **Off by default.** The toggle flips an App-Group flag (`pult.measureTimings`). Turn it off when done so it never records locally or emits timing events to PostHog for normal users.
 - **Volume is device-dependent** and its push cadence is unconfirmed across models — treat the volume readout as per-TV evidence, not a guarantee.
 - **Timings are wall-clock,** not isolated CPU time; `send (~)` is a *derived remainder* (it absorbs decision overhead), so read it as an upper bound.
 - **Numbers are evidence for a design decision, not a validation claim.** Per the repo's evidence culture, don't claim a latency figure is "validated" for a TV unless you captured it on that TV.

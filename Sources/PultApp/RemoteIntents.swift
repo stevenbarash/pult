@@ -4,6 +4,9 @@ import Foundation
 import OSLog
 import PultCore
 import UniformTypeIdentifiers
+#if PULT_APP && canImport(PostHog)
+import PostHog
+#endif
 #if canImport(ActivityKit) && os(iOS)
 import ActivityKit
 #endif
@@ -24,7 +27,45 @@ typealias HeadlessRemoteIntent = AppIntent
 /// app process ever executes perform().
 @MainActor
 enum SharedRemote {
-    static let model = RemoteControlModel()
+    static let model = RemoteControlModel(timingRecorder: AppCommandTimingRecorder())
+}
+
+private struct AppCommandTimingRecorder: CommandTimingRecording {
+    private let diagnosticsRecorder = CommandTimingRecorder()
+
+    var isEnabled: Bool {
+        diagnosticsRecorder.isEnabled
+    }
+
+    func record(_ timing: CommandTiming) {
+        guard isEnabled else { return }
+        diagnosticsRecorder.record(timing)
+        PostHogCommandTiming.capture(timing)
+    }
+}
+
+private enum PostHogCommandTiming {
+    static func capture(_ timing: CommandTiming) {
+#if PULT_APP && canImport(PostHog)
+        PostHogSDK.shared.capture(
+            "command_timing_recorded",
+            properties: timing.analyticsProperties.mapValues(\.postHogValue)
+        )
+#endif
+    }
+}
+
+private extension CommandTimingAnalyticsValue {
+    var postHogValue: Any {
+        switch self {
+        case let .string(value):
+            value
+        case let .bool(value):
+            value
+        case let .double(value):
+            value
+        }
+    }
 }
 
 enum RemoteKeyOption: String, AppEnum {

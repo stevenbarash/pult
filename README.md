@@ -46,7 +46,10 @@ discovery, reachability, pairing, remote commands, session connection, and TV
 keyboard sends. MetricKit is registered at app launch when available. The Xcode
 app target links the PostHog iOS SDK and reads `PultPostHogProjectToken` from
 `Sources/PultApp/Supporting/Info.plist`; SwiftPM-only checks keep the PostHog
-import compile-gated. See `Docs/Observability.md`.
+import compile-gated. Diagnostics command timing is off by default; when the
+Diagnostics toggle is enabled, timing samples write locally and emit
+privacy-safe `command_timing_recorded` events to PostHog. See
+`Docs/Observability.md`.
 
 ## Build
 

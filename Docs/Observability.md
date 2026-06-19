@@ -6,6 +6,8 @@ TestFlight product analytics when the Xcode app target is built.
 ## Native Signals
 
 - `OSLog` emits structured events under the `app.pult` subsystem.
+- Command timing samples write to the App Group diagnostics log only while the
+  Diagnostics "Record Command Timing" toggle is enabled.
 - MetricKit is registered at app launch when the framework is available.
 - MetricKit payload receipt is logged by byte count only; payload contents are
   not copied into app logs.
@@ -41,6 +43,14 @@ The app bundle reads `PultPostHogProjectToken` from
 
 `PultPostHogHost` is optional and defaults to `https://us.i.posthog.com`.
 Use `https://eu.i.posthog.com` for an EU PostHog project.
+
+When the Diagnostics "Record Command Timing" toggle is enabled, the app also
+captures a `command_timing_recorded` PostHog event for each timing sample. Its
+properties are limited to command key, WARM/COLD classification, dialed flag,
+success flag, fresh-launch heuristic, and coarse phase timings (`total_ms`,
+`tcp_tls_ms`, `configure_ms`, and `send_ms_approx`). Timing events follow the
+same runtime toggle as the local diagnostics log, so they are off for normal
+TestFlight use unless measurement is explicitly turned on.
 
 Do not log private telemetry fields into PostHog events. TV hostnames, IP
 addresses, saved TV names, pairing codes, typed text, certificates, keys, and

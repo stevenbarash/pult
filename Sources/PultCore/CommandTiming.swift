@@ -92,4 +92,32 @@ public struct CommandTiming: Codable, Equatable, Sendable, Identifiable {
             return "reused socket · send ~\(Int(sendMsApprox.rounded()))"
         }
     }
+
+    /// Privacy-safe primitive properties suitable for outbound product
+    /// analytics. This intentionally excludes host, saved-TV name, timestamps,
+    /// pairing material, and any text entry contents.
+    public var analyticsProperties: [String: CommandTimingAnalyticsValue] {
+        var properties: [String: CommandTimingAnalyticsValue] = [
+            "key": .string(key),
+            "classification": .string(classification),
+            "dialed": .bool(dialed),
+            "succeeded": .bool(succeeded),
+            "fresh_launch": .bool(likelyFreshLaunch),
+            "total_ms": .double(totalMs),
+            "send_ms_approx": .double(sendMsApprox),
+        ]
+        if let tcpTlsMs {
+            properties["tcp_tls_ms"] = .double(tcpTlsMs)
+        }
+        if let configureMs {
+            properties["configure_ms"] = .double(configureMs)
+        }
+        return properties
+    }
+}
+
+public enum CommandTimingAnalyticsValue: Equatable, Sendable {
+    case string(String)
+    case bool(Bool)
+    case double(Double)
 }

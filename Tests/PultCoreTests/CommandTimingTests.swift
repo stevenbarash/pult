@@ -51,6 +51,41 @@ func timingFormattingCoversColdFreshLaunchAndWarm() {
 }
 
 @Test
+func timingAnalyticsPropertiesArePrimitiveAndPrivacySafe() {
+    let timing = CommandTiming(
+        key: "volumeUp",
+        startedAt: Date(timeIntervalSince1970: 4_000),
+        totalMs: 312.4,
+        dialed: true,
+        tcpTlsMs: 181.2,
+        configureMs: 120.8,
+        processAgeMs: 900,
+        succeeded: false
+    )
+
+    let properties = timing.analyticsProperties
+
+    #expect(properties.filter { $0.key != "send_ms_approx" } == [
+        "key": .string("volumeUp"),
+        "classification": .string("COLD"),
+        "dialed": .bool(true),
+        "succeeded": .bool(false),
+        "fresh_launch": .bool(true),
+        "total_ms": .double(312.4),
+        "tcp_tls_ms": .double(181.2),
+        "configure_ms": .double(120.8),
+    ])
+    if case let .double(sendMsApprox) = properties["send_ms_approx"] {
+        #expect(abs(sendMsApprox - 10.4) < 0.0001)
+    } else {
+        Issue.record("Expected send_ms_approx to be present as a double")
+    }
+    #expect(properties["host"] == nil)
+    #expect(properties["device_name"] == nil)
+    #expect(properties["started_at"] == nil)
+}
+
+@Test
 func durationMillisecondsValueConvertsSecondsAndFraction() {
     #expect(Duration.milliseconds(250).millisecondsValue == 250)
     #expect(Duration.seconds(2).millisecondsValue == 2_000)
