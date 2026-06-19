@@ -263,7 +263,7 @@ struct AddDeviceView: View {
     private var appSettingsAction: (() -> Void)? {
         #if os(iOS)
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return nil }
-        returnpo { _ = openURL(url) }
+        return { openURL(url) }
         #else
         return nil
         #endif
