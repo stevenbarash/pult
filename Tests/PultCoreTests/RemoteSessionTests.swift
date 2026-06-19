@@ -168,9 +168,42 @@ func connectFailureSurfacesErrorDetail() async {
     #expect(session.lastError != nil)
 }
 
+@MainActor
+@Test
+func connectFailurePreservesTransportReason() async {
+    let session = RemoteSession(transport: ReasonedFailingTransport(), configureTimeout: .milliseconds(50))
+
+    await session.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+
+    guard case let .failed(message) = session.connectionState else {
+        Issue.record("expected failed state")
+        return
+    }
+    #expect(message.contains("Software caused connection abort"))
+    #expect(session.lastError == message)
+}
+
 private actor FailingTransport: RemoteTransport {
     func connect(to host: String, port: UInt16) async throws {
         throw RemoteTransportError.connectionFailed
+    }
+
+    func send(_ data: Data) async throws {}
+
+    func receive() async throws -> Data {
+        throw RemoteTransportError.disconnected
+    }
+
+    func close() async {}
+
+    func peerRSAPublicKeyParameters() async throws -> RSAPublicKeyParameters? {
+        nil
+    }
+}
+
+private actor ReasonedFailingTransport: RemoteTransport {
+    func connect(to host: String, port: UInt16) async throws {
+        throw RemoteTransportError.connectionFailedWithReason("Software caused connection abort")
     }
 
     func send(_ data: Data) async throws {}

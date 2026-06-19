@@ -20,6 +20,12 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>PultPostHogProjectToken</key>
+	<string>phc_pfGYdeizaj4ats4yPDszoB2m7v2u6r6avgVneUfkmTao</string>
+	<key>PultPostHogHost</key>
+	<string>https://f.barash.me</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSSupportsLiveActivities</key>

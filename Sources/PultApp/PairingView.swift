@@ -1,5 +1,8 @@
 import SwiftUI
 import PultCore
+#if canImport(PostHog)
+import PostHog
+#endif
 
 struct PairingView: View {
     @Environment(\.dismiss) private var dismiss
@@ -47,6 +50,18 @@ struct PairingView: View {
             // Clear the entered code when a wrong-code error appears so the
             // field is empty and ready for the fresh code shown on the TV.
             if new != nil { code = "" }
+        }
+        .onChange(of: model.pairingState) { _, newState in
+            #if canImport(PostHog)
+            switch newState {
+            case .paired:
+                PostHogSDK.shared.capture("tv_paired")
+            case .failed:
+                PostHogSDK.shared.capture("pairing_failed")
+            default:
+                break
+            }
+            #endif
         }
         .task {
             await model.beginPairing()

@@ -1,6 +1,9 @@
 import Foundation
 import SwiftUI
 import PultCore
+#if canImport(PostHog)
+import PostHog
+#endif
 #if os(iOS)
 import UIKit
 #endif
@@ -260,7 +263,7 @@ struct AddDeviceView: View {
     private var appSettingsAction: (() -> Void)? {
         #if os(iOS)
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return nil }
-        return { _ = openURL(url) }
+        returnpo { _ = openURL(url) }
         #else
         return nil
         #endif
@@ -281,11 +284,21 @@ struct AddDeviceView: View {
 
     private func addDevice() {
         model.addManualDevice(name: name, host: hostValidation.normalizedHost)
+        #if canImport(PostHog)
+        PostHogSDK.shared.capture("tv_added", properties: [
+            "method": "manual",
+        ])
+        #endif
         dismiss()
     }
 
     private func addDiscoveredDevice(_ device: DiscoveredDevice) {
         model.addDiscoveredDevice(device)
+        #if canImport(PostHog)
+        PostHogSDK.shared.capture("tv_added", properties: [
+            "method": "discovery",
+        ])
+        #endif
         dismiss()
     }
 

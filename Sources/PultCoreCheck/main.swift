@@ -68,6 +68,35 @@ struct StaticReachabilityProbe: DeviceReachabilityProbing {
     }
 }
 
+final class CollectingAppTelemetryRecorder: AppTelemetryRecording, @unchecked Sendable {
+    private(set) var events: [AppTelemetryEvent] = []
+
+    func record(_ event: AppTelemetryEvent) {
+        events.append(event)
+    }
+}
+
+actor FailingConnectRemoteTransport: RemoteTransport {
+    private(set) var connectCount = 0
+
+    func connect(to host: String, port: UInt16) async throws {
+        connectCount += 1
+        throw RemoteTransportError.connectionFailed
+    }
+
+    func send(_ data: Data) async throws {}
+
+    func receive() async throws -> Data {
+        throw RemoteTransportError.disconnected
+    }
+
+    func close() async {}
+
+    func peerRSAPublicKeyParameters() async throws -> RSAPublicKeyParameters? {
+        nil
+    }
+}
+
 let discovery = DeviceDiscovery(store: MemoryDeviceStore())
 let addedDevice = discovery.addManualDevice(name: "  ", host: " 192.168.1.42 ")
 expect(addedDevice?.name == "192.168.1.42", "whitespace device name should fall back to host")
@@ -152,6 +181,42 @@ expect(
 expect(
     RemoteCommandPlan.suggestions(matching: "favorite").first?.action == .showFavoriteApps,
     "favorite command suggestions failed"
+)
+
+let telemetryEvent = AppTelemetryEvent(
+    category: .remoteSession,
+    action: "connect",
+    outcome: .succeeded,
+    metadata: [
+        "transport": .public("mtls"),
+        "host": .private("192.168.1.10")
+    ]
+)
+expect(
+    telemetryEvent.logMetadataDescription == "transport=mtls",
+    "telemetry log metadata should include only public fields"
+)
+expect(
+    !telemetryEvent.logMetadataDescription.contains("192.168.1.10"),
+    "telemetry log metadata should not expose private values"
+)
+
+let sessionTelemetry = CollectingAppTelemetryRecorder()
+let telemetryTransport = MockRemoteTransport()
+let telemetrySession = RemoteSession(
+    transport: telemetryTransport,
+    telemetryRecorder: sessionTelemetry
+)
+await telemetryTransport.enqueueIncoming(framer.frame(Data([0x0A, 0x02, 0x08, 0x01])))
+await telemetrySession.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+expect(
+    sessionTelemetry.events.contains {
+        $0.category == .remoteSession
+            && $0.action == "connect"
+            && $0.outcome == .succeeded
+            && !$0.logMetadataDescription.contains("192.168.1.10")
+    },
+    "remote session connect should emit privacy-safe telemetry"
 )
 
 var backoff = ReconnectionBackoff()
@@ -510,6 +575,44 @@ await staleConnect.value
 try? await Task.sleep(for: .milliseconds(150))
 expect(switchSession.connectionState == .connected, "stale attempt overwrote the new connection")
 expect(switchSession.device?.id == switchDeviceB.id, "session device should be the new target")
+
+let foregroundRefreshStore = MemoryDeviceStore()
+let foregroundRefreshDevice = DeviceRecord(name: "Refresh TV", host: "10.0.0.3", isPaired: true)
+foregroundRefreshStore.saveDevices([foregroundRefreshDevice])
+foregroundRefreshStore.saveSelectedDeviceID(foregroundRefreshDevice.id)
+let foregroundRefreshTransport = MockRemoteTransport()
+let foregroundRefreshModel = RemoteControlModel(
+    discovery: DeviceDiscovery(store: foregroundRefreshStore),
+    session: RemoteSession(transport: foregroundRefreshTransport, configureTimeout: .milliseconds(200))
+)
+await foregroundRefreshTransport.enqueueIncoming(framer.frame(Data([0x0A, 0x02, 0x08, 0x01])))
+await foregroundRefreshModel.ensureConnected()
+expect(foregroundRefreshModel.session.connectionState == .connected, "foreground refresh setup did not connect")
+let foregroundRefresh = Task { await foregroundRefreshModel.ensureConnected(staleAfter: 0) }
+try? await Task.sleep(for: .milliseconds(20))
+await foregroundRefreshTransport.enqueueIncoming(framer.frame(Data([0x0A, 0x02, 0x08, 0x01])))
+await foregroundRefresh.value
+expect(foregroundRefreshModel.session.connectionState == .connected, "foreground refresh did not stay connected")
+let foregroundRefreshDialCount = await foregroundRefreshTransport.connectCount
+expect(foregroundRefreshDialCount == 2, "foreground refresh should redial an idle connected session")
+
+let failedInitialConnectStore = MemoryDeviceStore()
+let failedInitialConnectDevice = DeviceRecord(name: "Offline TV", host: "10.0.0.4", isPaired: true)
+failedInitialConnectStore.saveDevices([failedInitialConnectDevice])
+failedInitialConnectStore.saveSelectedDeviceID(failedInitialConnectDevice.id)
+let failedInitialConnectTransport = FailingConnectRemoteTransport()
+let failedInitialConnectModel = RemoteControlModel(
+    discovery: DeviceDiscovery(store: failedInitialConnectStore),
+    session: RemoteSession(transport: failedInitialConnectTransport, configureTimeout: .milliseconds(50))
+)
+let failedInitialConnectOutcome = await failedInitialConnectModel.performHeadlessCommand(.home)
+if case let .failed(message) = failedInitialConnectOutcome {
+    expect(message.contains("Offline TV"), "initial connect failure should report the TV name")
+} else {
+    expect(false, "initial connect failure should fail the command")
+}
+let failedInitialConnectDialCount = await failedInitialConnectTransport.connectCount
+expect(failedInitialConnectDialCount == 1, "initial connect failure should not redial before a send")
 
 let pairingTransport = MockRemoteTransport()
 let pairingSession = PairingSession(transport: pairingTransport, serviceName: "svc", clientName: "cli")

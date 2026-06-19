@@ -3,6 +3,49 @@ import Network
 import Testing
 @testable import PultCore
 
+@Test
+func networkOperationContinuationCompletesWhenCancelled() async {
+    let operation = NetworkOperationContinuation<Void>()
+    let task = Task {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                operation.set(continuation)
+            }
+        } onCancel: {
+            operation.cancel()
+        }
+    }
+
+    await Task.yield()
+    task.cancel()
+
+    await #expect(throws: CancellationError.self) {
+        try await task.value
+    }
+}
+
+@Test
+func networkOperationContinuationIgnoresLateCallbacksAfterCancellation() async {
+    let operation = NetworkOperationContinuation<Void>()
+    let task = Task {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                operation.set(continuation)
+            }
+        } onCancel: {
+            operation.cancel()
+        }
+    }
+
+    await Task.yield()
+    task.cancel()
+    operation.resume(returning: ())
+
+    await #expect(throws: CancellationError.self) {
+        try await task.value
+    }
+}
+
 /// A connection nobody answers must fail promptly. NWConnection reports
 /// refused/unreachable endpoints as `.waiting` and retries forever; the
 /// transport has to surface that as a failure or callers (including locked
@@ -30,7 +73,11 @@ func refusedConnectionFailsInsteadOfHangingForever() async {
 
     #expect(finished, "connect() suspended past 3s for a refused connection")
     if finished {
-        #expect(thrown as? RemoteTransportError == .connectionFailed)
+        guard case let .connectionFailedWithReason(reason) = thrown as? RemoteTransportError else {
+            Issue.record("expected reasoned connection failure")
+            return
+        }
+        #expect(!reason.isEmpty)
     }
     attempt.cancel()
 }
@@ -72,6 +119,11 @@ func connectTimesOutWhenHandshakeStalls() async throws {
     listener.cancel()
     await transport.close()
 
-    #expect(thrown as? RemoteTransportError == .connectionFailed)
+    switch thrown as? RemoteTransportError {
+    case .connectionFailed, .connectionFailedWithReason:
+        break
+    default:
+        Issue.record("expected connection failure")
+    }
     #expect(elapsed < .seconds(3), "connect() should time out near 300ms, not hang")
 }

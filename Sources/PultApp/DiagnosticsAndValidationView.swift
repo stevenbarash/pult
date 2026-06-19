@@ -1,6 +1,9 @@
 import Foundation
 import SwiftUI
 import PultCore
+#if canImport(PostHog)
+import PostHog
+#endif
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -336,7 +339,7 @@ struct DiagnosticsAndValidationView: View {
     private func connect() {
         statusMessage = "Connecting..."
         Task {
-            await model.ensureConnected()
+            await model.ensureConnected(staleAfter: 0)
             statusMessage = model.session.connectionState == .connected
                 ? "Connected."
                 : model.session.lastError ?? "Connection did not complete."
@@ -477,6 +480,18 @@ struct DiagnosticsAndValidationView: View {
         } else {
             statusMessage = "Validation updated: \(validationRun?.summary ?? "No validation run")."
         }
+        #if canImport(PostHog)
+        let validationOutcome: String = {
+            switch validationClaimState {
+            case .validated: return "validated"
+            case .needsAttention: return "needs_attention"
+            case .unvalidated: return "unvalidated"
+            }
+        }()
+        PostHogSDK.shared.capture("validation_run_completed", properties: [
+            "outcome": validationOutcome,
+        ])
+        #endif
     }
 
     private func saveValidationReport() {

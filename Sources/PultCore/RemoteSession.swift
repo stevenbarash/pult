@@ -65,17 +65,20 @@ public final class RemoteSession {
     private var connectAttempt = 0
     private var nextImeCounter = 0
     private let dialSignposter = OSSignposter(subsystem: "app.pult", category: "dial")
+    private let telemetryRecorder: any AppTelemetryRecording
 
     public init(
         transport: RemoteTransport = NetworkRemoteTransport(),
         codec: RemoteMessageCodec = AndroidTVRemoteMessageCodec(),
         framer: VarintFramer = VarintFramer(),
-        configureTimeout: Duration = .seconds(5)
+        configureTimeout: Duration = .seconds(5),
+        telemetryRecorder: any AppTelemetryRecording = OSLogAppTelemetryRecorder(category: .remoteSession)
     ) {
         self.transport = transport
         self.codec = codec
         self.framer = framer
         self.configureTimeout = configureTimeout
+        self.telemetryRecorder = telemetryRecorder
     }
 
     public func connect(to device: DeviceRecord) async {
@@ -112,6 +115,7 @@ public final class RemoteSession {
         await transport.close()
         guard attempt == connectAttempt else { return }
 
+        let connectStart = ContinuousClock.now
         let tcpState = dialSignposter.beginInterval("tcp+tls")
         let tcpStart = ContinuousClock.now
         do {
@@ -119,6 +123,12 @@ public final class RemoteSession {
         } catch {
             dialSignposter.endInterval("tcp+tls", tcpState)
             fail(with: "Could not reach \(device.host): \(describe(error))", attempt: attempt)
+            recordConnectTelemetry(
+                outcome: .failed,
+                startedAt: connectStart,
+                device: device,
+                metadata: ["phase": .public("tcp_tls")]
+            )
             return
         }
         lastTCPTLSMilliseconds = tcpStart.duration(to: .now).millisecondsValue
@@ -131,6 +141,17 @@ public final class RemoteSession {
         await waitForConfiguration(attempt: attempt)
         lastConfigureMilliseconds = configureStart.duration(to: .now).millisecondsValue
         dialSignposter.endInterval("configure", configureState)
+
+        guard attempt == connectAttempt else { return }
+        recordConnectTelemetry(
+            outcome: connectionState == .connected ? .succeeded : .failed,
+            startedAt: connectStart,
+            device: device,
+            metadata: [
+                "phase": .public(connectionState == .connected ? "ready" : "configure"),
+                "transport": .public("mtls")
+            ]
+        )
     }
 
     public func disconnect() {
@@ -175,13 +196,31 @@ public final class RemoteSession {
 
     @discardableResult
     public func sendText(_ text: String) async -> Bool {
-        guard !text.isEmpty else { return true }
+        let telemetryStart = ContinuousClock.now
+        guard !text.isEmpty else {
+            recordKeyboardTelemetry(
+                outcome: .skipped,
+                startedAt: telemetryStart,
+                metadata: ["reason": .public("empty_text")]
+            )
+            return true
+        }
         guard connectionState == .connected else {
             lastError = "Connect to the TV before typing."
+            recordKeyboardTelemetry(
+                outcome: .failed,
+                startedAt: telemetryStart,
+                metadata: ["reason": .public("not_connected")]
+            )
             return false
         }
         guard let textFieldStatus else {
             lastError = "Open a text field on the TV before typing."
+            recordKeyboardTelemetry(
+                outcome: .failed,
+                startedAt: telemetryStart,
+                metadata: ["reason": .public("no_focused_field")]
+            )
             return false
         }
 
@@ -197,11 +236,17 @@ public final class RemoteSession {
                 try await send(codec.encode(.text(edit)))
             } catch {
                 fail(with: describe(error))
+                recordKeyboardTelemetry(
+                    outcome: .failed,
+                    startedAt: telemetryStart,
+                    metadata: ["reason": .public("send_failed")]
+                )
                 return false
             }
         }
 
         lastError = nil
+        recordKeyboardTelemetry(outcome: .succeeded, startedAt: telemetryStart)
         return true
     }
 
@@ -304,10 +349,48 @@ public final class RemoteSession {
         connectionState = .failed(message)
     }
 
+    private func recordConnectTelemetry(
+        outcome: AppTelemetryOutcome,
+        startedAt: ContinuousClock.Instant,
+        device: DeviceRecord,
+        metadata: [String: AppTelemetryValue] = [:]
+    ) {
+        var eventMetadata = metadata
+        eventMetadata["host"] = .private(device.host)
+        eventMetadata["device_name"] = .private(device.name)
+        telemetryRecorder.record(
+            AppTelemetryEvent(
+                category: .remoteSession,
+                action: "connect",
+                outcome: outcome,
+                durationMilliseconds: startedAt.duration(to: .now).millisecondsValue,
+                metadata: eventMetadata
+            )
+        )
+    }
+
+    private func recordKeyboardTelemetry(
+        outcome: AppTelemetryOutcome,
+        startedAt: ContinuousClock.Instant,
+        metadata: [String: AppTelemetryValue] = [:]
+    ) {
+        telemetryRecorder.record(
+            AppTelemetryEvent(
+                category: .keyboard,
+                action: "send_text",
+                outcome: outcome,
+                durationMilliseconds: startedAt.duration(to: .now).millisecondsValue,
+                metadata: metadata
+            )
+        )
+    }
+
     private func describe(_ error: Error) -> String {
         switch error {
         case RemoteTransportError.connectionFailed:
             "TLS connection failed — check that the TV is on and paired"
+        case let RemoteTransportError.connectionFailedWithReason(reason):
+            "Network connection failed — \(reason)"
         case RemoteTransportError.disconnected:
             "The TV closed the connection"
         default:

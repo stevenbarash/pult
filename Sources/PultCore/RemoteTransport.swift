@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import Network
 import Security
 
@@ -14,6 +15,7 @@ public protocol RemoteTransport: Sendable {
 
 public enum RemoteTransportError: Error, Equatable {
     case connectionFailed
+    case connectionFailedWithReason(String)
     case disconnected
     case invalidPort
     case identityUnavailable
@@ -92,14 +94,18 @@ public actor NetworkRemoteTransport: RemoteTransport {
                                 switch state {
                                 case .ready:
                                     gate.resume { continuation.resume() }
-                                case .failed, .cancelled:
+                                case let .failed(error):
+                                    gate.resume {
+                                        continuation.resume(throwing: RemoteTransportError.connectionFailedWithReason(Self.describe(error)))
+                                    }
+                                case .cancelled:
                                     // `.cancelled` happens when disconnect()/device
                                     // switch closes the socket mid-handshake; resume
                                     // so connect() can't hang forever.
                                     gate.resume {
                                         continuation.resume(throwing: RemoteTransportError.connectionFailed)
                                     }
-                                case .waiting:
+                                case let .waiting(error):
                                     // Refused, unreachable, and policy-denied dials all
                                     // land here, and NWConnection then retries until the
                                     // network changes. For a LAN remote that means "the
@@ -109,7 +115,7 @@ public actor NetworkRemoteTransport: RemoteTransport {
                                     // layer above.
                                     gate.resume {
                                         connection.cancel()
-                                        continuation.resume(throwing: RemoteTransportError.connectionFailed)
+                                        continuation.resume(throwing: RemoteTransportError.connectionFailedWithReason(Self.describe(error)))
                                     }
                                 default:
                                     break
@@ -126,7 +132,7 @@ public actor NetworkRemoteTransport: RemoteTransport {
                     // fires .ready/.failed/.waiting, so without this it could
                     // hang past the session's configure timeout.
                     try await Task.sleep(for: connectTimeout)
-                    throw RemoteTransportError.connectionFailed
+                    throw RemoteTransportError.connectionFailedWithReason("Timed out.")
                 }
                 defer { group.cancelAll() }
                 try await group.next()
@@ -140,32 +146,46 @@ public actor NetworkRemoteTransport: RemoteTransport {
     public func send(_ data: Data) async throws {
         guard let connection else { throw RemoteTransportError.disconnected }
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            connection.send(content: data, completion: .contentProcessed { error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else {
-                    continuation.resume()
-                }
-            })
+        let operation = NetworkOperationContinuation<Void>()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                operation.set(continuation)
+                connection.send(content: data, completion: .contentProcessed { error in
+                    if let error {
+                        operation.resume(throwing: error)
+                    } else {
+                        operation.resume(returning: ())
+                    }
+                })
+            }
+        } onCancel: {
+            operation.cancel()
+            connection.cancel()
         }
     }
 
     public func receive() async throws -> Data {
         guard let connection else { throw RemoteTransportError.disconnected }
 
-        return try await withCheckedThrowingContinuation { continuation in
-            connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { data, _, isComplete, error in
-                if let error {
-                    continuation.resume(throwing: error)
-                } else if let data, !data.isEmpty {
-                    continuation.resume(returning: data)
-                } else if isComplete {
-                    continuation.resume(throwing: RemoteTransportError.disconnected)
-                } else {
-                    continuation.resume(returning: Data())
+        let operation = NetworkOperationContinuation<Data>()
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                operation.set(continuation)
+                connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { data, _, isComplete, error in
+                    if let error {
+                        operation.resume(throwing: error)
+                    } else if let data, !data.isEmpty {
+                        operation.resume(returning: data)
+                    } else if isComplete {
+                        operation.resume(throwing: RemoteTransportError.disconnected)
+                    } else {
+                        operation.resume(returning: Data())
+                    }
                 }
             }
+        } onCancel: {
+            operation.cancel()
+            connection.cancel()
         }
     }
 
@@ -182,6 +202,21 @@ public actor NetworkRemoteTransport: RemoteTransport {
             return nil
         }
         return try RSAPublicKeyParameters(pkcs1: keyData)
+    }
+
+    private static func describe(_ error: NWError) -> String {
+        switch error {
+        case let .posix(code):
+            return String(cString: strerror(code.rawValue))
+        case .dns:
+            return "DNS lookup failed."
+        case .tls:
+            return "TLS setup failed."
+        case .wifiAware:
+            return "Wi-Fi Aware connection failed."
+        @unknown default:
+            return "Network connection failed."
+        }
     }
 }
 
@@ -212,5 +247,71 @@ private final class ContinuationGate: @unchecked Sendable {
         guard !hasResumed else { return }
         hasResumed = true
         body()
+    }
+}
+
+final class NetworkOperationContinuation<Value: Sendable>: @unchecked Sendable {
+    private enum State {
+        case pending
+        case waiting(CheckedContinuation<Value, Error>)
+        case resumed
+    }
+
+    private let lock = NSLock()
+    private var state: State = .pending
+
+    func set(_ continuation: CheckedContinuation<Value, Error>) {
+        let shouldCancel: Bool
+        lock.lock()
+        switch state {
+        case .pending:
+            state = .waiting(continuation)
+            shouldCancel = false
+        case .resumed:
+            shouldCancel = true
+        case .waiting:
+            preconditionFailure("Network operation continuation was set more than once")
+        }
+        lock.unlock()
+
+        if shouldCancel {
+            continuation.resume(throwing: CancellationError())
+        }
+    }
+
+    func cancel() {
+        resume(throwing: CancellationError())
+    }
+
+    func resume(returning value: Value) {
+        resume { continuation in
+            continuation.resume(returning: value)
+        }
+    }
+
+    func resume(throwing error: Error) {
+        resume { continuation in
+            continuation.resume(throwing: error)
+        }
+    }
+
+    private func resume(_ body: (CheckedContinuation<Value, Error>) -> Void) {
+        let continuation: CheckedContinuation<Value, Error>?
+        lock.lock()
+        switch state {
+        case .pending:
+            state = .resumed
+            continuation = nil
+        case let .waiting(current):
+            state = .resumed
+            continuation = current
+        case .resumed:
+            continuation = nil
+        }
+        lock.unlock()
+
+        if let continuation {
+            body(continuation)
+        }
     }
 }

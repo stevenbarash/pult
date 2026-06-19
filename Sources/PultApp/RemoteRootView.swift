@@ -1,9 +1,13 @@
 import Foundation
 import SwiftUI
 import PultCore
+#if canImport(PostHog)
+import PostHog
+#endif
 
 struct RemoteRootView: View {
     @Bindable var model: RemoteControlModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var presentedSheet: RemoteSheet?
     @State private var dismissedSheet: RemoteSheet?
     @State private var selectedValidationClaimState: DeviceValidationClaimState = .unvalidated
@@ -73,6 +77,10 @@ struct RemoteRootView: View {
         }
         .task(id: model.discovery.devices) {
             await RemoteIntentIndex.refreshDevices(model.discovery.devices)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            guard newPhase == .active else { return }
+            Task { await autoConnectIfNeeded(staleAfter: 30) }
         }
         .sheet(item: presentedSheetBinding, onDismiss: handleSheetDismiss, content: sheetContent)
     }
@@ -241,6 +249,11 @@ struct RemoteRootView: View {
     }
 
     private func runPaletteCommand(_ command: RemoteQuickCommand) {
+        #if canImport(PostHog)
+        PostHogSDK.shared.capture("command_palette_action_run", properties: [
+            "command": command.title,
+        ])
+        #endif
         dismissPresentedSheet()
         switch command.action {
         case let .key(key):
@@ -296,8 +309,20 @@ struct RemoteRootView: View {
                 if lastCommandKey == key {
                     lastCommandFailure = nil
                 }
+                #if canImport(PostHog)
+                PostHogSDK.shared.capture("key_command_sent", properties: [
+                    "key": key.rawValue,
+                    "key_action": String(action.rawValue),
+                ])
+                #endif
             case let .failed(message):
                 lastCommandFailure = RemoteCommandFailure(message: message)
+                #if canImport(PostHog)
+                PostHogSDK.shared.capture("command_failed", properties: [
+                    "key": key.rawValue,
+                    "reason": message,
+                ])
+                #endif
             }
         }
     }
@@ -322,8 +347,11 @@ struct RemoteRootView: View {
     }
 
     @MainActor
-    private func autoConnectIfNeeded() async {
-        await model.ensureConnected()
+    private func autoConnectIfNeeded(staleAfter idleTimeout: TimeInterval = .infinity) async {
+        await model.ensureConnected(staleAfter: idleTimeout)
+        if model.session.connectionState == .connected {
+            lastCommandFailure = nil
+        }
         await RemoteIntentIndex.donateSelectedDeviceShortcuts(for: model.selectedDevice)
         #if canImport(ActivityKit) && os(iOS)
         if let device = model.selectedDevice {

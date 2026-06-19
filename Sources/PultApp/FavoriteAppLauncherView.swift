@@ -1,6 +1,9 @@
 import Foundation
 import SwiftUI
 import PultCore
+#if canImport(PostHog)
+import PostHog
+#endif
 
 struct FavoriteAppLauncherView: View {
     @Environment(\.dismiss) private var dismiss
@@ -259,6 +262,11 @@ struct FavoriteAppLauncherView: View {
             if outcome == .sent {
                 statusMessage = "Sent \(favorite.title) to \(model.selectedDevice?.name ?? "TV")."
                 actionFailure = nil
+                #if canImport(PostHog)
+                PostHogSDK.shared.capture("app_link_launched", properties: [
+                    "app_name": favorite.title,
+                ])
+                #endif
             } else {
                 let errorText = model.session.lastError ?? "The TV did not accept the app link."
                 actionFailure = RemoteCommandFailure(message: errorText)
@@ -271,7 +279,7 @@ struct FavoriteAppLauncherView: View {
     private func reconnect() {
         actionFailure = nil
         Task { @MainActor in
-            await model.ensureConnected()
+            await model.ensureConnected(staleAfter: 0)
             if case let .failed(message) = model.session.connectionState {
                 actionFailure = RemoteCommandFailure(message: message)
             }
@@ -291,6 +299,11 @@ struct FavoriteAppLauncherView: View {
         appLink = ""
         favoriteSearchText = ""
         statusMessage = "Added \(favorite.title)."
+        #if canImport(PostHog)
+        PostHogSDK.shared.capture("favorite_app_added", properties: [
+            "app_name": favorite.title,
+        ])
+        #endif
     }
 
     private func delete(_ favorite: FavoriteAppLink) {

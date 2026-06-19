@@ -24,6 +24,7 @@ public final class RemoteControlModel {
     private var pairingSession: PairingSession?
     private var headlessTask: Task<HeadlessCommandOutcome, Never>?
     private let timingRecorder: any CommandTimingRecording
+    private let telemetryRecorder: any AppTelemetryRecording
 
     private enum RemoteAction: Equatable, Sendable {
         case key(RemoteKey, KeyAction)
@@ -33,6 +34,27 @@ public final class RemoteControlModel {
             switch self {
             case let .key(key, _): key.rawValue
             case .appLink: "appLink"
+            }
+        }
+
+        var telemetryAction: String {
+            switch self {
+            case .key: "send_key"
+            case .appLink: "open_app_link"
+            }
+        }
+
+        var telemetryMetadata: [String: AppTelemetryValue] {
+            switch self {
+            case let .key(key, action):
+                [
+                    "key": .public(key.rawValue),
+                    "key_action": .public(String(action.rawValue))
+                ]
+            case .appLink:
+                [
+                    "target": .public("app_link")
+                ]
             }
         }
     }
@@ -50,13 +72,15 @@ public final class RemoteControlModel {
         session: RemoteSession = RemoteSession(),
         identityProvider: any ClientIdentityProviding = KeychainClientIdentityStore.shared,
         makePairingTransport: @escaping @Sendable () -> any RemoteTransport = { NetworkRemoteTransport() },
-        timingRecorder: any CommandTimingRecording = CommandTimingRecorder()
+        timingRecorder: any CommandTimingRecording = CommandTimingRecorder(),
+        telemetryRecorder: any AppTelemetryRecording = OSLogAppTelemetryRecorder(category: .command)
     ) {
         self.discovery = discovery
         self.session = session
         self.identityProvider = identityProvider
         self.makePairingTransport = makePairingTransport
         self.timingRecorder = timingRecorder
+        self.telemetryRecorder = telemetryRecorder
         self.selectedDevice = discovery.devices.first(where: { $0.id == discovery.selectedDeviceID })
             ?? discovery.devices.first
         discovery.selectedDeviceID = selectedDevice?.id
@@ -147,8 +171,16 @@ public final class RemoteControlModel {
         _ action: RemoteAction,
         staleAfter idleTimeout: TimeInterval
     ) async -> HeadlessCommandOutcome {
+        let telemetryStart = ContinuousClock.now
         guard timingRecorder.isEnabled else {
-            return await runRemoteAction(action, staleAfter: idleTimeout, dialFlag: nil)
+            let outcome = await runRemoteAction(action, staleAfter: idleTimeout, dialFlag: nil)
+            recordRemoteActionTelemetry(
+                action,
+                outcome: outcome,
+                startedAt: telemetryStart,
+                dialed: nil
+            )
+            return outcome
         }
 
         let willDial = selectedDevice.map {
@@ -173,7 +205,34 @@ public final class RemoteControlModel {
                 succeeded: outcome == .sent
             )
         )
+        recordRemoteActionTelemetry(
+            action,
+            outcome: outcome,
+            startedAt: telemetryStart,
+            dialed: flag.dialed
+        )
         return outcome
+    }
+
+    private func recordRemoteActionTelemetry(
+        _ action: RemoteAction,
+        outcome: HeadlessCommandOutcome,
+        startedAt: ContinuousClock.Instant,
+        dialed: Bool?
+    ) {
+        var metadata = action.telemetryMetadata
+        if let dialed {
+            metadata["dialed"] = .public(dialed ? "true" : "false")
+        }
+        telemetryRecorder.record(
+            AppTelemetryEvent(
+                category: .command,
+                action: action.telemetryAction,
+                outcome: outcome == .sent ? .succeeded : .failed,
+                durationMilliseconds: startedAt.duration(to: .now).millisecondsValue,
+                metadata: metadata
+            )
+        )
     }
 
     /// Ensures a fresh connection, sends once, then redials and retries once
@@ -190,15 +249,20 @@ public final class RemoteControlModel {
         }
 
         await ensureFreshConnection(staleAfter: idleTimeout)
+        var attemptedSend = false
         if session.connectionState == .connected {
+            attemptedSend = true
             let sent = await send(action)
             if sent, session.connectionState == .connected {
                 return .sent
             }
         }
 
-        // Fresh dial: either the first connect failed outright, or the press
-        // above killed a stale connection.
+        guard attemptedSend else {
+            return .failed("Could not reach \(selectedDevice.name).")
+        }
+
+        // Fresh dial: the press above killed a stale connection.
         //
         // A send that fails on a dead socket almost certainly never reached the
         // TV, so resending on the fresh connection is safe for the common case.
@@ -217,11 +281,12 @@ public final class RemoteControlModel {
     }
 
     /// Connects the selected device when needed: a no-op when the session is
-    /// already connected to it, and never dials an unpaired device, whose
-    /// mutual-TLS connection the TV would reject.
-    public func ensureConnected() async {
+    /// already connected to it within the requested freshness window, and
+    /// never dials an unpaired device, whose mutual-TLS connection the TV
+    /// would reject.
+    public func ensureConnected(staleAfter idleTimeout: TimeInterval = .infinity) async {
         guard let selectedDevice, selectedDevice.isPaired else { return }
-        if session.connectionState == .connected, session.device?.id == selectedDevice.id {
+        if !session.needsConnectionRefresh(for: selectedDevice, idleTimeout: idleTimeout) {
             return
         }
         await session.connect(to: selectedDevice)
@@ -230,15 +295,18 @@ public final class RemoteControlModel {
     @discardableResult
     public func ensureFreshConnection(staleAfter idleTimeout: TimeInterval = 90) async -> Bool {
         guard let selectedDevice, selectedDevice.isPaired else { return false }
-        if !session.needsConnectionRefresh(for: selectedDevice, idleTimeout: idleTimeout) {
-            return true
-        }
-        await session.connect(to: selectedDevice)
+        await ensureConnected(staleAfter: idleTimeout)
         return session.connectionState == .connected
     }
 
     public func beginPairing() async {
         guard let selectedDevice else { return }
+        let telemetryStart = ContinuousClock.now
+        recordPairingTelemetry(
+            action: "begin",
+            outcome: .started,
+            startedAt: telemetryStart
+        )
         await pairingSession?.cancel()
         pairingCodeError = nil
         pairingState = .connecting
@@ -253,9 +321,21 @@ public final class RemoteControlModel {
             }.value
             try await pairing.start(for: selectedDevice, clientParameters: parameters)
             pairingState = .waitingForCode
+            recordPairingTelemetry(
+                action: "begin",
+                outcome: .succeeded,
+                startedAt: telemetryStart,
+                metadata: ["phase": .public("waiting_for_code")]
+            )
         } catch {
             pairingState = .failed(Self.describe(error))
             await pairing.cancel()
+            recordPairingTelemetry(
+                action: "begin",
+                outcome: .failed,
+                startedAt: telemetryStart,
+                metadata: ["reason": .public(Self.telemetryReason(for: error))]
+            )
         }
     }
 
@@ -266,9 +346,16 @@ public final class RemoteControlModel {
         guard let pairing = pairingSession, pairingState == .waitingForCode else { return }
         guard let code = PairingCode(rawValue: rawCode) else {
             pairingState = .failed("Enter the \(PairingCode.length)-character code shown on the TV.")
+            recordPairingTelemetry(
+                action: "submit_code",
+                outcome: .failed,
+                startedAt: ContinuousClock.now,
+                metadata: ["reason": .public("invalid_format")]
+            )
             return
         }
 
+        let telemetryStart = ContinuousClock.now
         pairingState = .verifying
         do {
             try await pairing.submit(code: code)
@@ -278,6 +365,11 @@ public final class RemoteControlModel {
                 discovery.markPaired(selectedDevice)
                 self.selectedDevice = discovery.devices.first(where: { $0.id == selectedDevice.id }) ?? selectedDevice
             }
+            recordPairingTelemetry(
+                action: "submit_code",
+                outcome: .succeeded,
+                startedAt: telemetryStart
+            )
         } catch {
             await pairing.cancel()
             if Self.isBadCodeError(error) {
@@ -298,7 +390,30 @@ public final class RemoteControlModel {
                 pairingCodeError = nil
                 pairingState = .failed(Self.describe(error))
             }
+            recordPairingTelemetry(
+                action: "submit_code",
+                outcome: .failed,
+                startedAt: telemetryStart,
+                metadata: ["reason": .public(Self.telemetryReason(for: error))]
+            )
         }
+    }
+
+    private func recordPairingTelemetry(
+        action: String,
+        outcome: AppTelemetryOutcome,
+        startedAt: ContinuousClock.Instant,
+        metadata: [String: AppTelemetryValue] = [:]
+    ) {
+        telemetryRecorder.record(
+            AppTelemetryEvent(
+                category: .pairing,
+                action: action,
+                outcome: outcome,
+                durationMilliseconds: startedAt.duration(to: .now).millisecondsValue,
+                metadata: metadata
+            )
+        )
     }
 
     /// Returns true for errors that mean the user entered the wrong code and
@@ -348,8 +463,27 @@ public final class RemoteControlModel {
             "The TV's certificate was not available. Reconnect and try again."
         case RemoteTransportError.connectionFailed:
             "Could not reach the TV's pairing service. Make sure the TV is on and on the same network."
+        case let RemoteTransportError.connectionFailedWithReason(reason):
+            "Could not reach the TV's pairing service. \(reason)"
         default:
             error.localizedDescription
+        }
+    }
+
+    private static func telemetryReason(for error: Error) -> String {
+        switch error {
+        case PairingSecretError.checkByteMismatch:
+            "bad_code"
+        case PairingSessionError.rejected(let status) where status == .badSecret:
+            "bad_code"
+        case PairingSessionError.rejected:
+            "rejected"
+        case PairingSessionError.missingPeerCertificate:
+            "missing_peer_certificate"
+        case RemoteTransportError.connectionFailed, RemoteTransportError.connectionFailedWithReason:
+            "transport_failed"
+        default:
+            "unknown"
         }
     }
 

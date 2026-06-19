@@ -48,6 +48,8 @@ public protocol DeviceReachabilityProbing: Sendable {
 }
 
 public struct NetworkPortReachabilityProbe: DeviceReachabilityProbing {
+    private static let queue = DispatchQueue(label: "app.pult.device-reachability", qos: .userInitiated)
+
     public init() {}
 
     public func probe(host: String, port: UInt16, timeout: Duration = .seconds(3)) async -> DeviceReachability {
@@ -56,7 +58,6 @@ public struct NetworkPortReachabilityProbe: DeviceReachabilityProbing {
         }
 
         let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: .tcp)
-        let queue = DispatchQueue(label: "app.pult.device-reachability", qos: .userInitiated)
 
         return await withTaskCancellationHandler {
             await withCheckedContinuation { (continuation: CheckedContinuation<DeviceReachability, Never>) in
@@ -79,7 +80,7 @@ public struct NetworkPortReachabilityProbe: DeviceReachabilityProbing {
                     }
                 }
 
-                connection.start(queue: queue)
+                connection.start(queue: Self.queue)
 
                 Task {
                     do {
@@ -190,23 +191,31 @@ public final class DeviceDiscovery {
     private let store: DeviceStore
     private let bonjourScanner: BonjourDeviceScanner
     private let reachabilityProbe: any DeviceReachabilityProbing
+    private let telemetryRecorder: any AppTelemetryRecording
     private var scanTimeoutTask: Task<Void, Never>?
     private var reachabilityTasks: [String: Task<Void, Never>] = [:]
 
     public init(
         store: DeviceStore = UserDefaultsDeviceStore(),
-        reachabilityProbe: any DeviceReachabilityProbing = NetworkPortReachabilityProbe()
+        reachabilityProbe: any DeviceReachabilityProbing = NetworkPortReachabilityProbe(),
+        telemetryRecorder: any AppTelemetryRecording = OSLogAppTelemetryRecorder(category: .discovery)
     ) {
         self.store = store
         self.devices = store.loadDevices()
         self.selectedDeviceID = store.loadSelectedDeviceID()
         self.bonjourScanner = BonjourDeviceScanner()
         self.reachabilityProbe = reachabilityProbe
+        self.telemetryRecorder = telemetryRecorder
         self.bonjourScanner.onChange = { [weak self] devices in
             self?.applyDiscoveredDevices(devices)
         }
         self.bonjourScanner.onFailure = { [weak self] message in
             self?.discoveryState = .failed(message)
+            self?.recordDiscovery(
+                action: "scan",
+                outcome: .failed,
+                metadata: ["reason": .private(message)]
+            )
         }
     }
 
@@ -214,14 +223,23 @@ public final class DeviceDiscovery {
     public func addManualDevice(name: String, host: String) -> DeviceRecord? {
         let trimmedHost = host.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedHost.isEmpty else { return nil }
+        guard !trimmedHost.isEmpty else {
+            recordDiscovery(
+                action: "add_manual_device",
+                outcome: .failed,
+                metadata: ["reason": .public("blank_host")]
+            )
+            return nil
+        }
 
         let record: DeviceRecord
+        let mode: String
         if let index = devices.firstIndex(where: { $0.host == trimmedHost }) {
             devices[index].name = trimmedName.isEmpty ? devices[index].name : trimmedName
             devices[index].source = .manual
             devices[index].lastSeen = .now
             record = devices[index]
+            mode = "updated"
         } else {
             record = DeviceRecord(
                 name: trimmedName.isEmpty ? trimmedHost : trimmedName,
@@ -229,9 +247,19 @@ public final class DeviceDiscovery {
                 source: .manual
             )
             devices.append(record)
+            mode = "created"
         }
 
         store.saveDevices(devices)
+        recordDiscovery(
+            action: "add_manual_device",
+            outcome: .succeeded,
+            metadata: [
+                "mode": .public(mode),
+                "host": .private(record.host),
+                "device_name": .private(record.name)
+            ]
+        )
         return record
     }
 
@@ -279,13 +307,25 @@ public final class DeviceDiscovery {
 
     @discardableResult
     public func addDiscoveredDevice(_ discoveredDevice: DiscoveredDevice) -> DeviceRecord? {
-        addDevice(
+        let record = addDevice(
             name: discoveredDevice.name,
             host: discoveredDevice.host,
             commandPort: discoveredDevice.commandPort,
             pairingPort: discoveredDevice.pairingPort,
             source: .bonjour
         )
+        if let record {
+            recordDiscovery(
+                action: "add_discovered_device",
+                outcome: .succeeded,
+                metadata: [
+                    "service_type": .public(discoveredDevice.serviceType),
+                    "host": .private(record.host),
+                    "device_name": .private(record.name)
+                ]
+            )
+        }
+        return record
     }
 
     public func refresh() async {
@@ -295,6 +335,7 @@ public final class DeviceDiscovery {
     public func startScanning() {
         scanTimeoutTask?.cancel()
         discoveryState = .scanning
+        recordDiscovery(action: "scan", outcome: .started)
         bonjourScanner.start()
         scanTimeoutTask = Task { [weak self] in
             do {
@@ -305,6 +346,11 @@ public final class DeviceDiscovery {
             await MainActor.run {
                 guard let self, self.discoveryState == .scanning, self.discoveredDevices.isEmpty else { return }
                 self.discoveryState = .manualOnly
+                self.recordDiscovery(
+                    action: "scan_timeout",
+                    outcome: .unavailable,
+                    metadata: ["result": .public("manual_only")]
+                )
             }
         }
     }
@@ -317,6 +363,11 @@ public final class DeviceDiscovery {
         if discoveryState == .scanning {
             discoveryState = discoveredDevices.isEmpty ? .manualOnly : .idle
         }
+        recordDiscovery(
+            action: "scan_stop",
+            outcome: .succeeded,
+            metadata: ["device_count": .public(String(discoveredDevices.count))]
+        )
     }
 
     public func presence(for device: DeviceRecord) -> DevicePresence {
@@ -381,6 +432,11 @@ public final class DeviceDiscovery {
 
     private func applyDiscoveredDevices(_ devices: [DiscoveredDevice]) {
         discoveredDevices = devices
+        recordDiscovery(
+            action: "scan_result",
+            outcome: .succeeded,
+            metadata: ["device_count": .public(String(devices.count))]
+        )
         updateSavedDevices(from: devices)
         scheduleReachabilityChecks(for: devices)
         if !devices.isEmpty, discoveryState == .manualOnly {
@@ -455,6 +511,16 @@ public final class DeviceDiscovery {
         let result = await reachabilityProbe.probe(host: host, port: port, timeout: .seconds(3))
         guard !Task.isCancelled else { return .unknown }
         reachabilityByHost[key] = result
+        recordDiscovery(
+            category: .reachability,
+            action: "probe",
+            outcome: result.isReachable ? .succeeded : .failed,
+            metadata: [
+                "state": .public(result.telemetryState),
+                "port": .public(String(port)),
+                "host": .private(host)
+            ]
+        )
         return result
     }
 
@@ -471,6 +537,33 @@ public final class DeviceDiscovery {
 
     private static func hostKey(_ host: String) -> String {
         host.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private func recordDiscovery(
+        category: AppTelemetryCategory = .discovery,
+        action: String,
+        outcome: AppTelemetryOutcome,
+        metadata: [String: AppTelemetryValue] = [:]
+    ) {
+        telemetryRecorder.record(
+            AppTelemetryEvent(
+                category: category,
+                action: action,
+                outcome: outcome,
+                metadata: metadata
+            )
+        )
+    }
+}
+
+private extension DeviceReachability {
+    var telemetryState: String {
+        switch self {
+        case .unknown: "unknown"
+        case .checking: "checking"
+        case .reachable: "reachable"
+        case .unreachable: "unreachable"
+        }
     }
 }
 
@@ -544,9 +637,6 @@ private final class BonjourDeviceScanner: NSObject, NetServiceBrowserDelegate, N
         for serviceType in Self.serviceTypes {
             let browser = NetServiceBrowser()
             browser.delegate = self
-            #if os(iOS) || os(macOS)
-            browser.includesPeerToPeer = true
-            #endif
             browsers.append(browser)
             browser.searchForServices(ofType: serviceType, inDomain: "local.")
         }

@@ -16,7 +16,7 @@
 		010000000000000000000007 /* PultCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 010000000000000000000202 /* PultCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		010000000000000000000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000108 /* Assets.xcassets */; };
 		010000000000000000000009 /* RemoteControlSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000109 /* RemoteControlSurface.swift */; };
-		010000000000000000000010 /* AppIcon60x60@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000107 /* AppIcon60x60@3x.png */; };
+		010000000000000000000010 /* Supporting/AppIcon60x60@3x.png in Resources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000107 /* Supporting/AppIcon60x60@3x.png */; };
 		010000000000000000000011 /* PairingCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000111 /* PairingCode.swift */; };
 		010000000000000000000012 /* DeviceDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000112 /* DeviceDiscovery.swift */; };
 		010000000000000000000013 /* RemoteSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000113 /* RemoteSession.swift */; };
@@ -59,14 +59,15 @@
 		010000000000000000000050 /* RemoteDPadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000148 /* RemoteDPadView.swift */; };
 		010000000000000000000051 /* RemoteHardwareInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000149 /* RemoteHardwareInput.swift */; };
 		010000000000000000000052 /* RemoteSurfaceStatusViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000150 /* RemoteSurfaceStatusViews.swift */; };
-		010000000000000000000053 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000151 /* PrivacyInfo.xcprivacy */; };
-		010000000000000000000054 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000152 /* PrivacyInfo.xcprivacy */; };
+		010000000000000000000053 /* Supporting/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000151 /* Supporting/PrivacyInfo.xcprivacy */; };
+		010000000000000000000054 /* Supporting/PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000152 /* Supporting/PrivacyInfo.xcprivacy */; };
 		010000000000000000000060 /* RemoteActivityLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000153 /* RemoteActivityLayout.swift */; };
+		010000000000000000000061 /* LockScreenRemoteSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000154 /* LockScreenRemoteSettingsView.swift */; };
 		010000000000000000000062 /* CommandTiming.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000155 /* CommandTiming.swift */; };
 		010000000000000000000063 /* CommandTimingLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000156 /* CommandTimingLog.swift */; };
 		010000000000000000000064 /* CommandTimingRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000157 /* CommandTimingRecorder.swift */; };
 		010000000000000000000065 /* ProcessClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000158 /* ProcessClock.swift */; };
-		010000000000000000000061 /* LockScreenRemoteSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000154 /* LockScreenRemoteSettingsView.swift */; };
+		010000000000000000001001 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 010000000000000000001003 /* PostHog */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -125,7 +126,7 @@
 		010000000000000000000104 /* TextEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextEntryView.swift; sourceTree = "<group>"; };
 		010000000000000000000105 /* RemoteIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteIntents.swift; sourceTree = "<group>"; };
 		010000000000000000000106 /* Supporting/Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Supporting/Info.plist; sourceTree = "<group>"; };
-		010000000000000000000107 /* AppIcon60x60@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Supporting/AppIcon60x60@3x.png"; sourceTree = "<group>"; };
+		010000000000000000000107 /* Supporting/AppIcon60x60@3x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Supporting/AppIcon60x60@3x.png"; sourceTree = "<group>"; };
 		010000000000000000000108 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		010000000000000000000109 /* RemoteControlSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteControlSurface.swift; sourceTree = "<group>"; };
 		010000000000000000000111 /* PairingCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingCode.swift; sourceTree = "<group>"; };
@@ -168,14 +169,14 @@
 		010000000000000000000148 /* RemoteDPadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteDPadView.swift; sourceTree = "<group>"; };
 		010000000000000000000149 /* RemoteHardwareInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteHardwareInput.swift; sourceTree = "<group>"; };
 		010000000000000000000150 /* RemoteSurfaceStatusViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteSurfaceStatusViews.swift; sourceTree = "<group>"; };
-		010000000000000000000151 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Supporting/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
-		010000000000000000000152 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Supporting/PrivacyInfo.xcprivacy"; sourceTree = "<group>"; };
+		010000000000000000000151 /* Supporting/PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Supporting/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		010000000000000000000152 /* Supporting/PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Supporting/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		010000000000000000000153 /* RemoteActivityLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteActivityLayout.swift; sourceTree = "<group>"; };
+		010000000000000000000154 /* LockScreenRemoteSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenRemoteSettingsView.swift; sourceTree = "<group>"; };
 		010000000000000000000155 /* CommandTiming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTiming.swift; sourceTree = "<group>"; };
 		010000000000000000000156 /* CommandTimingLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTimingLog.swift; sourceTree = "<group>"; };
 		010000000000000000000157 /* CommandTimingRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTimingRecorder.swift; sourceTree = "<group>"; };
 		010000000000000000000158 /* ProcessClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessClock.swift; sourceTree = "<group>"; };
-		010000000000000000000154 /* LockScreenRemoteSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenRemoteSettingsView.swift; sourceTree = "<group>"; };
 		010000000000000000000201 /* Pult.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pult.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		010000000000000000000202 /* PultCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PultCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		010000000000000000000203 /* PultWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PultWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -187,6 +188,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				010000000000000000000006 /* PultCore.framework in Frameworks */,
+				010000000000000000001001 /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -263,10 +265,10 @@
 				010000000000000000000130 /* RemoteControls.swift */,
 				010000000000000000000131 /* TouchpadView.swift */,
 				010000000000000000000108 /* Assets.xcassets */,
-				010000000000000000000107 /* AppIcon60x60@3x.png */,
+				010000000000000000000107 /* Supporting/AppIcon60x60@3x.png */,
 				010000000000000000000138 /* Pult.entitlements */,
 				010000000000000000000106 /* Supporting/Info.plist */,
-				010000000000000000000151 /* PrivacyInfo.xcprivacy */,
+				010000000000000000000151 /* Supporting/PrivacyInfo.xcprivacy */,
 			);
 			path = PultApp;
 			sourceTree = "<group>";
@@ -309,7 +311,7 @@
 				010000000000000000000136 /* PultControls.swift */,
 				010000000000000000000139 /* PultWidgets.entitlements */,
 				010000000000000000000137 /* Supporting/Info.plist */,
-				010000000000000000000152 /* PrivacyInfo.xcprivacy */,
+				010000000000000000000152 /* Supporting/PrivacyInfo.xcprivacy */,
 			);
 			path = PultWidgets;
 			sourceTree = "<group>";
@@ -334,6 +336,9 @@
 				010000000000000000000304 /* PBXTargetDependency */,
 			);
 			name = Pult;
+			packageProductDependencies = (
+				010000000000000000001003 /* PostHog */,
+			);
 			productName = Pult;
 			productReference = 010000000000000000000201 /* Pult.app */;
 			productType = "com.apple.product-type.application";
@@ -403,6 +408,9 @@
 				Base,
 			);
 			mainGroup = 010000000000000000000601;
+			packageReferences = (
+				010000000000000000001002 /* XCRemoteSwiftPackageReference "posthog-ios" */,
+			);
 			productRefGroup = 010000000000000000000603 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -420,8 +428,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				010000000000000000000008 /* Assets.xcassets in Resources */,
-				010000000000000000000010 /* AppIcon60x60@3x.png in Resources */,
-				010000000000000000000053 /* PrivacyInfo.xcprivacy in Resources */,
+				010000000000000000000010 /* Supporting/AppIcon60x60@3x.png in Resources */,
+				010000000000000000000053 /* Supporting/PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -429,7 +437,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				010000000000000000000054 /* PrivacyInfo.xcprivacy in Resources */,
+				010000000000000000000054 /* Supporting/PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -660,7 +668,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Sources/PultApp/Pult.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 1.1;
 				DEVELOPMENT_ASSET_PATHS = "";
 				DEVELOPMENT_TEAM = 4HZ5WYBH8E;
 				ENABLE_DEBUG_DYLIB = NO;
@@ -671,12 +679,12 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = app.pult.Pult;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -688,7 +696,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Sources/PultApp/Pult.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 1.1;
 				DEVELOPMENT_TEAM = 4HZ5WYBH8E;
 				ENABLE_DEBUG_DYLIB = NO;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -698,12 +706,12 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = app.pult.Pult;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
-				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = YES;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -715,7 +723,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 1.1;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -724,7 +732,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(EXECUTABLE_PATH)";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = app.pult.PultCore;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -743,7 +751,7 @@
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_IDENTITY = "";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 1.1;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -752,7 +760,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_DYLIB_INSTALL_NAME = "@rpath/$(EXECUTABLE_PATH)";
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				MODULE_VERIFIER_SUPPORTED_LANGUAGE_STANDARDS = "gnu17 gnu++20";
 				PRODUCT_BUNDLE_IDENTIFIER = app.pult.PultCore;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -770,7 +778,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Sources/PultWidgets/PultWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 1.1;
 				DEVELOPMENT_TEAM = 4HZ5WYBH8E;
 				ENABLE_DEBUG_DYLIB = NO;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -781,7 +789,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = app.pult.Pult.PultWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -798,7 +806,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = Sources/PultWidgets/PultWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 1.1;
 				DEVELOPMENT_TEAM = 4HZ5WYBH8E;
 				ENABLE_DEBUG_DYLIB = NO;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -809,7 +817,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = app.pult.Pult.PultWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -861,6 +869,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		010000000000000000001002 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.59.3;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		010000000000000000001003 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 010000000000000000001002 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 010000000000000000000900 /* Project object */;
 }

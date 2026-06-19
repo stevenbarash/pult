@@ -1,5 +1,8 @@
 import SwiftUI
 import PultCore
+#if canImport(PostHog)
+import PostHog
+#endif
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -494,6 +497,11 @@ struct TextEntryView: View {
         Task { @MainActor in
             let sent = await model.session.sendText(payload)
             if sent {
+                #if canImport(PostHog)
+                PostHogSDK.shared.capture("text_sent_to_tv", properties: [
+                    "char_count": payload.count,
+                ])
+                #endif
                 text = ""
                 actionFailure = nil
             } else if let lastError = model.session.lastError {
@@ -519,7 +527,7 @@ struct TextEntryView: View {
     private func reconnect() {
         actionFailure = nil
         Task { @MainActor in
-            await model.ensureConnected()
+            await model.ensureConnected(staleAfter: 0)
             if case let .failed(message) = model.session.connectionState {
                 actionFailure = RemoteCommandFailure(message: message)
             }

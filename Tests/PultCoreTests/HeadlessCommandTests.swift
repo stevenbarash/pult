@@ -70,7 +70,8 @@ func headlessCommandFailsWithoutPairedSelection() async {
 @Test
 func headlessCommandReportsUnreachableTVByName() async {
     let device = DeviceRecord(name: "TV", host: "192.168.1.10", isPaired: true)
-    let model = makeModel(transport: UnreachableTransport(), device: device)
+    let transport = UnreachableTransport()
+    let model = makeModel(transport: transport, device: device)
 
     let outcome = await model.performHeadlessCommand(.home)
 
@@ -79,6 +80,23 @@ func headlessCommandReportsUnreachableTVByName() async {
         return
     }
     #expect(message.contains("TV"))
+}
+
+@MainActor
+@Test
+func headlessCommandDoesNotRedialWhenInitialFreshConnectFails() async {
+    let transport = UnreachableTransport()
+    let device = DeviceRecord(name: "TV", host: "192.168.1.10", isPaired: true)
+    let model = makeModel(transport: transport, device: device)
+
+    let outcome = await model.performHeadlessCommand(.home)
+
+    guard case .failed = outcome else {
+        Issue.record("expected failure")
+        return
+    }
+    let dialCount = await transport.connectCount
+    #expect(dialCount == 1)
 }
 
 @MainActor
@@ -129,8 +147,31 @@ func appLinkCommandUsesSameReconnectPath() async throws {
     #expect(payloads.last == framer.frame(try codec.encode(.appLink(url))))
 }
 
+@MainActor
+@Test
+func ensureConnectedRedialsConnectedButIdleSessionWhenAsked() async {
+    let transport = StaleAfterConfigureTransport(
+        configureFrame: framer.frame(tvConfigureFrame),
+        configureResponse: framer.frame(codec.encodeConfigureResponse())
+    )
+    let device = DeviceRecord(name: "TV", host: "192.168.1.10", isPaired: true)
+    let model = makeModel(transport: transport, device: device)
+
+    await model.ensureConnected()
+    #expect(model.session.connectionState == .connected)
+
+    await model.ensureConnected(staleAfter: 0)
+
+    #expect(model.session.connectionState == .connected)
+    let dialCount = await transport.connectCount
+    #expect(dialCount == 2)
+}
+
 private actor UnreachableTransport: RemoteTransport {
+    private(set) var connectCount = 0
+
     func connect(to host: String, port: UInt16) async throws {
+        connectCount += 1
         throw RemoteTransportError.connectionFailed
     }
     func send(_ data: Data) async throws {}

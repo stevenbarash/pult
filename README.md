@@ -39,6 +39,15 @@ evidence record lives in `Docs/PhysicalDeviceValidationChecklist.md`.
 
 The app declares `NSLocalNetworkUsageDescription` and the Android TV Remote Service Bonjour types in `Sources/PultApp/Supporting/Info.plist`. Nearby discovery scans `_androidtvremote2._tcp` and `_androidtvremote._tcp` when the Add TV flow opens or when the user retries a scan, which is when iOS may present the Local Network prompt. Found TVs are probed on their command port so the UI can distinguish found, reachable, pairing-required, paired, and unavailable states. The Add TV flow explains retry and Settings recovery without treating local-network permission as a directly readable authorization status. Manual IP entry remains available for TVs, routers, or permission states that do not advertise or scan reliably.
 
+## Observability
+
+Pult emits privacy-safe `OSLog` telemetry for app launch, MetricKit setup,
+discovery, reachability, pairing, remote commands, session connection, and TV
+keyboard sends. MetricKit is registered at app launch when available. The Xcode
+app target links the PostHog iOS SDK and reads `PultPostHogProjectToken` from
+`Sources/PultApp/Supporting/Info.plist`; SwiftPM-only checks keep the PostHog
+import compile-gated. See `Docs/Observability.md`.
+
 ## Build
 
 ```sh
