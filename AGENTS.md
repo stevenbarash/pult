@@ -44,6 +44,20 @@ It also checks that Swift files in `Sources/PultApp`, `Sources/PultCore`, and `S
 
 `swift test` may fail in command-line-tool-only environments with `no such module 'Testing'`. Treat that as a toolchain issue if `swift build` and `swift run PultCoreCheck` pass; use Xcode 26+ or a matching full Xcode developer directory for Swift Testing.
 
+## Release Hook
+
+After work is complete and explicitly confirmed working, use
+`make ship-testflight MESSAGE="..."` to commit any remaining worktree changes,
+push the current branch to GitHub, archive `Pult Release Direct`, verify the
+built app/framework metadata, and upload the verified archive to internal
+TestFlight. The hook refuses to run from `main`/`master` unless `ALLOW_MAIN=1`
+is set. Preview it with `make ship-testflight DRY_RUN=1 MESSAGE="..."`.
+
+The hook is intentionally explicit rather than a Git post-commit hook: do not
+wire TestFlight upload to every commit. TestFlight uploads are release actions
+and should happen only after the work has been verified and the user asks for
+shipping or approves the release path.
+
 ## Device Runs
 
 - Use `Pult Release Direct` first on physical iOS beta devices.

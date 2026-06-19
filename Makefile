@@ -12,7 +12,7 @@ PULT_CORE_SOURCES = 010000000000000000000522
 PULT_WIDGETS_GROUP = 010000000000000000000606
 PULT_WIDGETS_SOURCES = 010000000000000000000523
 
-.PHONY: build core-check metadata-check test verify verify-full xcode-build-device xcode-build-simulator xcode-env-check xcode-project-check
+.PHONY: build core-check metadata-check test test-ship-testflight ship-testflight verify verify-full xcode-build-device xcode-build-simulator xcode-env-check xcode-project-check
 
 build:
 	$(SWIFT_ENV) swift build --disable-sandbox
@@ -88,6 +88,9 @@ xcode-project-check:
 test:
 	$(SWIFT_ENV) swift test --disable-sandbox
 
+test-ship-testflight:
+	bash Scripts/test-ship-testflight.sh
+
 xcode-env-check:
 	@test -x "$(XCODE_DEVELOPER_DIR)/usr/bin/xcodebuild" || (echo "Set XCODE_DEVELOPER_DIR to a full Xcode developer directory."; exit 1)
 	$(XCODEBUILD_ENV) xcodebuild -version
@@ -107,3 +110,6 @@ verify:
 	$(MAKE) xcode-project-check
 
 verify-full: verify xcode-build-simulator
+
+ship-testflight:
+	MESSAGE="$(MESSAGE)" DRY_RUN="$(DRY_RUN)" ALLOW_MAIN="$(ALLOW_MAIN)" XCODE_DEVELOPER_DIR="$(XCODE_DEVELOPER_DIR)" bash Scripts/ship-testflight.sh

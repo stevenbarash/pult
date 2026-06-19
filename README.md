@@ -81,6 +81,19 @@ builds the `Pult` scheme for `generic/platform=iOS Simulator` with DerivedData
 inside `.build/XcodeDerivedData`. For a signing-aware Release/device CLI build,
 use `make xcode-build-device`.
 
+After a change has been confirmed working and is ready for internal TestFlight,
+run:
+
+```sh
+make ship-testflight MESSAGE="describe the shipped change"
+```
+
+Preview the release path without committing, pushing, archiving, or uploading:
+
+```sh
+make ship-testflight DRY_RUN=1 MESSAGE="describe the shipped change"
+```
+
 For a device build, open `Pult.xcodeproj` in Xcode, select the `Pult Release Direct` scheme for physical beta devices, choose your iPhone as the run destination, set your signing team and bundle identifier, then press Run. Opening `Package.swift` only builds SwiftPM products and may not install an iOS app bundle. The `Pult` scheme also builds and embeds the `PultWidgets` extension (Live Activity remote and controls).
 
 Local-network permission, TLS behavior, haptics, pairing, keyboard input, and locked/headless controls need a physical iPhone on the same network as the Google TV to validate end to end. Re-run validation from the Diagnostics sheet for the selected TV, then use `Docs/PhysicalDeviceValidationChecklist.md` to capture manual evidence: date, device name, host, and passed areas. Docs may say "validated on physical Google TV as of YYYY-MM-DD" only for areas backed by a stored validation report or explicit user/device evidence; otherwise, describe the area as unvalidated for that TV.
