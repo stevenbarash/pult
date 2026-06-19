@@ -255,6 +255,7 @@ struct OpenRemoteIntent: AppIntent {
         searchKeywords: ["Google TV", "remote", "television", "pairing"]
     )
     static let openAppWhenRun = true
+    static let supportedModes: IntentModes = .foreground(.immediate)
     static var parameterSummary: some ParameterSummary {
         Summary("Open \(\.$device)")
     }
@@ -294,6 +295,7 @@ struct SendRemoteKeyIntent: HeadlessRemoteIntent {
         searchKeywords: ["Google TV", "remote", "Siri", "Control Center", "Lock Screen"]
     )
     static let openAppWhenRun = false
+    static let supportedModes: IntentModes = .background
     static var parameterSummary: some ParameterSummary {
         Summary("Send \(\.$command) to \(\.$device)")
     }
@@ -331,6 +333,9 @@ struct SendRemoteKeyIntent: HeadlessRemoteIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         _ = ProcessClock.start
+        // Must run in the app process for locked Live Activity buttons to reuse
+        // the paired keychain identity and local-network permission.
+        intentLogger.debug("SendRemoteKeyIntent in \(ProcessInfo.processInfo.processName, privacy: .public)")
         let model = SharedRemote.model
         guard model.selectIfAvailable(device) else {
             return .result(dialog: RemoteIntentDialogs.deviceUnavailable)
@@ -363,6 +368,7 @@ struct StartRemoteSessionIntent: HeadlessRemoteIntent {
         searchKeywords: ["Google TV", "Live Activity", "Lock Screen", "Control Center", "Action button"]
     )
     static let openAppWhenRun = false
+    static let supportedModes: IntentModes = .background
     static var parameterSummary: some ParameterSummary {
         Summary("Show remote for \(\.$device)")
     }
@@ -432,6 +438,7 @@ struct EndRemoteSessionIntent: HeadlessRemoteIntent {
         searchKeywords: ["Google TV", "Live Activity", "Lock Screen", "remote"]
     )
     static let openAppWhenRun = false
+    static let supportedModes: IntentModes = .background
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
