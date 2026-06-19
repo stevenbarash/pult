@@ -130,10 +130,34 @@ func textEntryUsesLatestImeStatus() async throws {
     let didSend = await session.sendText("Hi")
     #expect(didSend)
 
-    let sent = await transport.waitForSent(count: 3)
-    #expect(sent.count >= 3)
-    #expect(sent[1] == framer.frame(try codec.encode(.text(RemoteTextEdit(imeCounter: 1, fieldCounter: 9, insert: 72)))))
-    #expect(sent[2] == framer.frame(try codec.encode(.text(RemoteTextEdit(imeCounter: 2, fieldCounter: 9, insert: 105)))))
+    let sent = await transport.waitForSent(count: 2)
+    #expect(sent.count >= 2)
+    #expect(sent[1] == framer.frame(try codec.encode(.text(RemoteTextEdit(imeCounter: 1, fieldCounter: 9, text: "Hi")))))
+}
+
+@MainActor
+@Test
+func textEntryUsesImeBatchEditStatusAndSendsOneCurrentBatch() async throws {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+    await session.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+    _ = await transport.waitForSent(count: 1)
+
+    await transport.enqueueIncoming(framer.frame(remoteImeBatchEditFrame(imeCounter: 3, fieldCounter: 9)))
+    var attempts = 0
+    while session.textFieldStatus?.counter != 9, attempts < 2000 {
+        attempts += 1
+        try? await Task.sleep(for: .milliseconds(1))
+    }
+
+    #expect(session.textFieldStatus?.imeCounter == 3)
+    let didSend = await session.sendText("Hi")
+    #expect(didSend)
+
+    let sent = await transport.waitForSent(count: 2)
+    #expect(sent.count >= 2)
+    #expect(sent[1] == framer.frame(try codec.encode(.text(RemoteTextEdit(imeCounter: 3, fieldCounter: 9, text: "Hi")))))
 }
 
 @MainActor
@@ -151,6 +175,36 @@ func textEntryRequiresFocusedTvField() async {
     #expect(session.lastError == "Open a text field on the TV before typing.")
     let sent = await transport.sentPayloads()
     #expect(sent.count == 1)
+}
+
+@MainActor
+@Test
+func voiceSessionStartsAfterTvVoiceBeginAndCanSendSamples() async throws {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+    await session.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+    _ = await transport.waitForSent(count: 1)
+
+    let start = Task { await session.startVoiceSession(timeout: .milliseconds(200)) }
+    var sent = await transport.waitForSent(count: 2)
+    #expect(sent.count >= 2)
+    #expect(sent[1] == framer.frame(try codec.encode(.key(.search, .tap))))
+
+    await transport.enqueueIncoming(framer.frame(remoteVoiceBeginFrame(sessionID: 42)))
+    let startResult = await start.value
+    #expect(startResult == .started(sessionID: 42))
+
+    sent = await transport.waitForSent(count: 3)
+    #expect(sent[2] == framer.frame(try codec.encode(.voiceBegin(sessionID: 42))))
+
+    let didSendSamples = await session.sendVoiceSamples(Data([0x01, 0x02]), sessionID: 42)
+    #expect(didSendSamples)
+    await session.endVoiceSession(sessionID: 42)
+
+    sent = await transport.waitForSent(count: 5)
+    #expect(sent[3] == framer.frame(try codec.encode(.voicePayload(sessionID: 42, samples: Data([0x01, 0x02])))))
+    #expect(sent[4] == framer.frame(try codec.encode(.voiceEnd(sessionID: 42))))
 }
 
 @MainActor
@@ -314,5 +368,34 @@ private func remoteImeShowRequestFrame(counter: Int) -> Data {
 
     var message = ProtobufEncoder()
     message.appendMessage(field: 22, showRequest.data)
+    return message.data
+}
+
+private func remoteImeBatchEditFrame(imeCounter: Int, fieldCounter: Int) -> Data {
+    var object = ProtobufEncoder()
+    object.appendVarint(field: 1, 0)
+    object.appendVarint(field: 2, 0)
+    object.appendString(field: 3, "")
+
+    var editInfo = ProtobufEncoder()
+    editInfo.appendVarint(field: 1, 1)
+    editInfo.appendMessage(field: 2, object.data)
+
+    var batchEdit = ProtobufEncoder()
+    batchEdit.appendVarint(field: 1, UInt64(imeCounter))
+    batchEdit.appendVarint(field: 2, UInt64(fieldCounter))
+    batchEdit.appendMessage(field: 3, editInfo.data)
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 21, batchEdit.data)
+    return message.data
+}
+
+private func remoteVoiceBeginFrame(sessionID: Int) -> Data {
+    var voiceBegin = ProtobufEncoder()
+    voiceBegin.appendVarint(field: 1, UInt64(sessionID))
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 30, voiceBegin.data)
     return message.data
 }

@@ -6,6 +6,12 @@ public enum HeadlessCommandOutcome: Equatable, Sendable {
     case failed(String)
 }
 
+public enum TextEntryPreparationResult: Equatable, Sendable {
+    case ready
+    case waitingForFocusedField
+    case failed(String)
+}
+
 @MainActor
 public protocol HeadlessWarmWindowMaintaining {
     func extend()
@@ -182,6 +188,34 @@ public final class RemoteControlModel {
 
     public func endHeadlessWarmWindow() {
         headlessWarmWindow.end()
+    }
+
+    @discardableResult
+    public func prepareTextEntry(timeout: Duration = .seconds(2)) async -> TextEntryPreparationResult {
+        guard selectedDevice != nil else {
+            return .failed("Add or choose a TV before typing.")
+        }
+
+        await ensureConnected(staleAfter: 30)
+        guard session.connectionState == .connected else {
+            return .failed(session.lastError ?? "Connect to the TV before typing.")
+        }
+        if session.textFieldStatus != nil {
+            return .ready
+        }
+
+        let searchOutcome = await sendKey(.search)
+        guard searchOutcome == .sent else {
+            if case let .failed(message) = searchOutcome {
+                return .failed(message)
+            }
+            return .failed(session.lastError ?? "Could not open TV search.")
+        }
+
+        if await session.waitForTextFieldStatus(timeout: timeout) {
+            return .ready
+        }
+        return .waitingForFocusedField
     }
 
     /// Reuses a live session when possible and redials once when a connection

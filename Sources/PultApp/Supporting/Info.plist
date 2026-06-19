@@ -37,6 +37,8 @@
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Pult connects to Google TV devices on your local network so it can work as a remote control.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Pult streams microphone audio to your selected Google TV for voice search.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchScreen</key>

@@ -4,21 +4,30 @@ public enum RemoteCommand: Equatable, Sendable {
     case key(RemoteKey, KeyAction)
     case text(RemoteTextEdit)
     case appLink(URL)
+    case voiceBegin(sessionID: Int)
+    case voicePayload(sessionID: Int, samples: Data)
+    case voiceEnd(sessionID: Int)
 }
 
 public struct RemoteTextEdit: Equatable, Sendable {
     public var imeCounter: Int
     public var fieldCounter: Int
-    public var insert: UInt32
+    public var text: String
 
-    public init(imeCounter: Int, fieldCounter: Int, insert: UInt32) {
+    public init(imeCounter: Int, fieldCounter: Int, text: String) {
         self.imeCounter = imeCounter
         self.fieldCounter = fieldCounter
-        self.insert = insert
+        self.text = text
+    }
+
+    public init(imeCounter: Int, fieldCounter: Int, insert: UInt32) {
+        let scalar = UnicodeScalar(insert).map(String.init) ?? ""
+        self.init(imeCounter: imeCounter, fieldCounter: fieldCounter, text: scalar)
     }
 }
 
 public struct RemoteTextFieldStatus: Equatable, Sendable {
+    public var imeCounter: Int
     public var counter: Int
     public var value: String
     public var selectionStart: Int
@@ -27,6 +36,7 @@ public struct RemoteTextFieldStatus: Equatable, Sendable {
     public var label: String
 
     public init(
+        imeCounter: Int = 1,
         counter: Int,
         value: String = "",
         selectionStart: Int = 0,
@@ -34,6 +44,7 @@ public struct RemoteTextFieldStatus: Equatable, Sendable {
         unknown5: Int = 0,
         label: String = ""
     ) {
+        self.imeCounter = imeCounter
         self.counter = counter
         self.value = value
         self.selectionStart = selectionStart
@@ -53,6 +64,7 @@ public enum IncomingRemoteMessage: Equatable, Sendable {
     case started(Bool)
     case volume(level: UInt64, maximum: UInt64, muted: Bool)
     case textFieldStatus(RemoteTextFieldStatus)
+    case voiceBegin(sessionID: Int)
     case other
 }
 
@@ -106,6 +118,9 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
         static let imeKeyInject = 20
         static let imeBatchEdit = 21
         static let imeShowRequest = 22
+        static let voiceBegin = 30
+        static let voicePayload = 31
+        static let voiceEnd = 32
         static let start = 40
         static let setVolumeLevel = 50
         static let appLinkLaunchRequest = 90
@@ -126,14 +141,34 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
             launch.appendString(field: 1, url.absoluteString)
             return message(field: FieldNumber.appLinkLaunchRequest, payload: launch.data)
         case let .text(edit):
+            var textObject = ProtobufEncoder()
+            let insertionOffset = UInt64(max(edit.text.count - 1, 0))
+            textObject.appendVarint(field: 1, insertionOffset)
+            textObject.appendVarint(field: 2, insertionOffset)
+            textObject.appendString(field: 3, edit.text)
+
             var editInfo = ProtobufEncoder()
-            editInfo.appendVarint(field: 2, UInt64(edit.insert))
+            editInfo.appendVarint(field: 1, 1)
+            editInfo.appendMessage(field: 2, textObject.data)
 
             var batchEdit = ProtobufEncoder()
             batchEdit.appendVarint(field: 1, UInt64(edit.imeCounter))
             batchEdit.appendVarint(field: 2, UInt64(edit.fieldCounter))
             batchEdit.appendMessage(field: 3, editInfo.data)
             return message(field: FieldNumber.imeBatchEdit, payload: batchEdit.data)
+        case let .voiceBegin(sessionID):
+            var begin = ProtobufEncoder()
+            begin.appendVarint(field: 1, UInt64(sessionID))
+            return message(field: FieldNumber.voiceBegin, payload: begin.data)
+        case let .voicePayload(sessionID, samples):
+            var payload = ProtobufEncoder()
+            payload.appendVarint(field: 1, UInt64(sessionID))
+            payload.appendBytes(field: 2, samples)
+            return message(field: FieldNumber.voicePayload, payload: payload.data)
+        case let .voiceEnd(sessionID):
+            var end = ProtobufEncoder()
+            end.appendVarint(field: 1, UInt64(sessionID))
+            return message(field: FieldNumber.voiceEnd, payload: end.data)
         }
     }
 
@@ -162,6 +197,10 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
                     return .textFieldStatus(status)
                 }
                 return .other
+            case FieldNumber.imeBatchEdit:
+                return .textFieldStatus(try textFieldStatus(fromBatchEdit: field.bytes))
+            case FieldNumber.voiceBegin:
+                return .voiceBegin(sessionID: Int(try firstVarint(field: 1, in: field.bytes) ?? 0))
             default:
                 continue
             }
@@ -222,6 +261,72 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
         return nil
     }
 
+    private func textFieldStatus(fromBatchEdit payload: Data) throws -> RemoteTextFieldStatus {
+        var imeCounter = 1
+        var fieldCounter = 0
+        var value = ""
+        var selectionStart = 0
+        var selectionEnd = 0
+
+        var reader = ProtobufFieldReader(data: payload)
+        while let field = try reader.nextField() {
+            switch field.number {
+            case 1 where field.wireType == .varint:
+                imeCounter = Int(field.varint)
+            case 2 where field.wireType == .varint:
+                fieldCounter = Int(field.varint)
+            case 3 where field.wireType == .lengthDelimited:
+                if let object = try textObject(fromEditInfo: field.bytes) {
+                    value = object.value
+                    selectionStart = object.selectionStart
+                    selectionEnd = object.selectionEnd
+                }
+            default:
+                continue
+            }
+        }
+
+        return RemoteTextFieldStatus(
+            imeCounter: max(imeCounter, 1),
+            counter: fieldCounter,
+            value: value,
+            selectionStart: selectionStart,
+            selectionEnd: selectionEnd
+        )
+    }
+
+    private func textObject(fromEditInfo payload: Data) throws -> (selectionStart: Int, selectionEnd: Int, value: String)? {
+        var reader = ProtobufFieldReader(data: payload)
+        while let field = try reader.nextField() {
+            if field.number == 2, field.wireType == .lengthDelimited {
+                return try textObject(from: field.bytes)
+            }
+        }
+        return nil
+    }
+
+    private func textObject(from payload: Data) throws -> (selectionStart: Int, selectionEnd: Int, value: String) {
+        var selectionStart = 0
+        var selectionEnd = 0
+        var value = ""
+
+        var reader = ProtobufFieldReader(data: payload)
+        while let field = try reader.nextField() {
+            switch field.number {
+            case 1 where field.wireType == .varint:
+                selectionStart = Int(field.varint)
+            case 2 where field.wireType == .varint:
+                selectionEnd = Int(field.varint)
+            case 3 where field.wireType == .lengthDelimited:
+                value = String(decoding: field.bytes, as: UTF8.self)
+            default:
+                continue
+            }
+        }
+
+        return (selectionStart, selectionEnd, value)
+    }
+
     private func textFieldStatus(from payload: Data) throws -> RemoteTextFieldStatus {
         var counter = 0
         var value = ""
@@ -251,6 +356,7 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
         }
 
         return RemoteTextFieldStatus(
+            imeCounter: 1,
             counter: counter,
             value: value,
             selectionStart: selectionStart,

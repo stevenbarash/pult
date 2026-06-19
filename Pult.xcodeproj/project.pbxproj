@@ -67,6 +67,7 @@
 		010000000000000000000063 /* CommandTimingLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000156 /* CommandTimingLog.swift */; };
 		010000000000000000000064 /* CommandTimingRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000157 /* CommandTimingRecorder.swift */; };
 		010000000000000000000065 /* ProcessClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000158 /* ProcessClock.swift */; };
+		010000000000000000000066 /* VoiceSearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 010000000000000000000159 /* VoiceSearchView.swift */; };
 		010000000000000000001001 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 010000000000000000001003 /* PostHog */; };
 /* End PBXBuildFile section */
 
@@ -177,6 +178,7 @@
 		010000000000000000000156 /* CommandTimingLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTimingLog.swift; sourceTree = "<group>"; };
 		010000000000000000000157 /* CommandTimingRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandTimingRecorder.swift; sourceTree = "<group>"; };
 		010000000000000000000158 /* ProcessClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessClock.swift; sourceTree = "<group>"; };
+		010000000000000000000159 /* VoiceSearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceSearchView.swift; sourceTree = "<group>"; };
 		010000000000000000000201 /* Pult.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pult.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		010000000000000000000202 /* PultCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PultCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		010000000000000000000203 /* PultWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = PultWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -258,6 +260,7 @@
 				010000000000000000000150 /* RemoteSurfaceStatusViews.swift */,
 				010000000000000000000103 /* AddDeviceView.swift */,
 				010000000000000000000104 /* TextEntryView.swift */,
+				010000000000000000000159 /* VoiceSearchView.swift */,
 				010000000000000000000105 /* RemoteIntents.swift */,
 				010000000000000000000132 /* RemoteSessionActivity.swift */,
 				010000000000000000000133 /* RemoteActivityController.swift */,
@@ -452,6 +455,7 @@
 				010000000000000000000002 /* RemoteRootView.swift in Sources */,
 				010000000000000000000003 /* AddDeviceView.swift in Sources */,
 				010000000000000000000004 /* TextEntryView.swift in Sources */,
+				010000000000000000000066 /* VoiceSearchView.swift in Sources */,
 				010000000000000000000005 /* RemoteIntents.swift in Sources */,
 				010000000000000000000032 /* RemoteSessionActivity.swift in Sources */,
 				010000000000000000000033 /* RemoteActivityController.swift in Sources */,

@@ -101,6 +101,7 @@ struct RemoteRootView: View {
                 commandFailure: lastCommandFailure,
                 send: send,
                 sendKeyAction: send,
+                onVoiceSearch: presentVoiceSearch,
                 onTextEntry: presentTextEntry,
                 onFavoriteApps: presentFavoriteApps,
                 onRetryCommand: retryLastCommand,
@@ -156,6 +157,7 @@ struct RemoteRootView: View {
 
     private enum RemoteSheet: Identifiable {
         case addDevice
+        case voiceSearch
         case textEntry
         case pairing
         case manageDevices
@@ -172,6 +174,9 @@ struct RemoteRootView: View {
         switch sheet {
         case .addDevice:
             AddDeviceView(model: model)
+                .presentationSizing(.form)
+        case .voiceSearch:
+            VoiceSearchView(model: model)
                 .presentationSizing(.form)
         case .textEntry:
             TextEntryView(model: model)
@@ -214,6 +219,10 @@ struct RemoteRootView: View {
         presentedSheet = .textEntry
     }
 
+    private func presentVoiceSearch() {
+        presentedSheet = .voiceSearch
+    }
+
     private func presentPairing() {
         lastCommandFailure = nil
         presentedSheet = .pairing
@@ -242,7 +251,7 @@ struct RemoteRootView: View {
         switch sheet {
         case .lockScreenSettings, .commandPalette:
             break
-        case .addDevice, .textEntry, .pairing, .manageDevices, .favoriteApps, .diagnostics, nil:
+        case .addDevice, .voiceSearch, .textEntry, .pairing, .manageDevices, .favoriteApps, .diagnostics, nil:
             // Pairing marks the device as paired; pick up the connection
             // without requiring a manual connect tap. Keep the legacy refresh
             // path for operational sheets that may alter devices or state.
@@ -260,7 +269,11 @@ struct RemoteRootView: View {
         dismissPresentedSheet()
         switch command.action {
         case let .key(key):
-            send(key)
+            if key == .voiceSearch {
+                presentSheetAfterDismiss(.voiceSearch)
+            } else {
+                send(key)
+            }
         case .addDevice:
             presentSheetAfterDismiss(.addDevice)
         case .textEntry:

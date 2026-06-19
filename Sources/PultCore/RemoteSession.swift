@@ -31,6 +31,11 @@ public enum RemoteCommandSendResult: Equatable, Sendable {
     case failed(String)
 }
 
+public enum VoiceSessionStartResult: Equatable, Sendable {
+    case started(sessionID: Int)
+    case failed(String)
+}
+
 @MainActor
 @Observable
 public final class RemoteSession {
@@ -64,6 +69,7 @@ public final class RemoteSession {
     private var connectTask: Task<Void, Never>?
     private var connectAttempt = 0
     private var nextImeCounter = 0
+    private var pendingVoiceSessionID: Int?
     private var connectionMarkedPossiblyStale = false
     private let dialSignposter = OSSignposter(subsystem: "app.pult", category: "dial")
     private let telemetryRecorder: any AppTelemetryRecording
@@ -103,6 +109,7 @@ public final class RemoteSession {
         lastTCPTLSMilliseconds = nil
         lastConfigureMilliseconds = nil
         nextImeCounter = 0
+        pendingVoiceSessionID = nil
 
         // The handshake runs in its own task so cancellation of the caller
         // (a re-fired SwiftUI .task, for example) cannot abandon it midway.
@@ -165,6 +172,7 @@ public final class RemoteSession {
         textFieldStatus = nil
         volumeStatus = nil
         nextImeCounter = 0
+        pendingVoiceSessionID = nil
         Task {
             await transport.close()
         }
@@ -235,30 +243,100 @@ public final class RemoteSession {
             return false
         }
 
-        for scalar in text.unicodeScalars {
-            nextImeCounter += 1
-            let edit = RemoteTextEdit(
-                imeCounter: nextImeCounter,
-                fieldCounter: textFieldStatus.counter,
-                insert: scalar.value
-            )
+        let imeCounter = max(nextImeCounter, textFieldStatus.imeCounter, 1)
+        let edit = RemoteTextEdit(
+            imeCounter: imeCounter,
+            fieldCounter: textFieldStatus.counter,
+            text: text
+        )
 
-            do {
-                try await send(codec.encode(.text(edit)))
-            } catch {
-                fail(with: describe(error))
-                recordKeyboardTelemetry(
-                    outcome: .failed,
-                    startedAt: telemetryStart,
-                    metadata: ["reason": .public("send_failed")]
-                )
-                return false
-            }
+        do {
+            try await send(codec.encode(.text(edit)))
+        } catch {
+            fail(with: describe(error))
+            recordKeyboardTelemetry(
+                outcome: .failed,
+                startedAt: telemetryStart,
+                metadata: ["reason": .public("send_failed")]
+            )
+            return false
         }
 
+        nextImeCounter = imeCounter + 1
         lastError = nil
         recordKeyboardTelemetry(outcome: .succeeded, startedAt: telemetryStart)
         return true
+    }
+
+    public func waitForTextFieldStatus(timeout: Duration = .seconds(2)) async -> Bool {
+        if textFieldStatus != nil {
+            return true
+        }
+
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while connectionState == .connected, textFieldStatus == nil, ContinuousClock.now < deadline {
+            do {
+                try await Task.sleep(for: .milliseconds(10))
+            } catch {
+                return false
+            }
+        }
+        return textFieldStatus != nil
+    }
+
+    public func startVoiceSession(timeout: Duration = .seconds(2)) async -> VoiceSessionStartResult {
+        guard connectionState == .connected else {
+            let message = "Connect to the TV before voice search."
+            lastError = message
+            return .failed(message)
+        }
+
+        pendingVoiceSessionID = nil
+        let searchResult = await sendIgnoringErrors(.key(.search, .tap))
+        guard searchResult == .sent else {
+            return .failed(lastError ?? "Voice search could not start.")
+        }
+
+        let deadline = ContinuousClock.now.advanced(by: timeout)
+        while connectionState == .connected, pendingVoiceSessionID == nil, ContinuousClock.now < deadline {
+            do {
+                try await Task.sleep(for: .milliseconds(10))
+            } catch {
+                let message = "Voice search was cancelled."
+                lastError = message
+                return .failed(message)
+            }
+        }
+
+        guard let sessionID = pendingVoiceSessionID else {
+            let message = "Voice search did not start on the TV."
+            lastError = message
+            return .failed(message)
+        }
+
+        pendingVoiceSessionID = nil
+        let beginResult = await sendIgnoringErrors(.voiceBegin(sessionID: sessionID))
+        guard beginResult == .sent else {
+            return .failed(lastError ?? "Voice search could not start.")
+        }
+        lastError = nil
+        return .started(sessionID: sessionID)
+    }
+
+    @discardableResult
+    public func sendVoiceSamples(_ samples: Data, sessionID: Int) async -> Bool {
+        guard !samples.isEmpty else { return true }
+        guard connectionState == .connected else {
+            lastError = "Connect to the TV before voice search."
+            return false
+        }
+        return await sendIgnoringErrors(.voicePayload(sessionID: sessionID, samples: samples)) == .sent
+    }
+
+    @discardableResult
+    public func endVoiceSession(sessionID: Int) async -> Bool {
+        guard connectionState == .connected else { return false }
+        return await sendIgnoringErrors(.voiceEnd(sessionID: sessionID)) == .sent
     }
 
     @discardableResult
@@ -313,10 +391,10 @@ public final class RemoteSession {
             volumePushCount += 1
             lastVolumePushAt = .now
         case let .textFieldStatus(status):
-            if textFieldStatus?.counter != status.counter {
-                nextImeCounter = 0
-            }
+            nextImeCounter = max(status.imeCounter, 1)
             textFieldStatus = status
+        case let .voiceBegin(sessionID):
+            pendingVoiceSessionID = sessionID
         }
     }
 

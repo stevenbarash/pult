@@ -30,6 +30,41 @@ func remoteImeShowRequestFrame(
     return message.data
 }
 
+func remoteImeBatchEditFrame(
+    imeCounter: Int,
+    fieldCounter: Int,
+    value: String = "",
+    selectionStart: Int = 0,
+    selectionEnd: Int = 0
+) -> Data {
+    var object = ProtobufEncoder()
+    object.appendVarint(field: 1, UInt64(selectionStart))
+    object.appendVarint(field: 2, UInt64(selectionEnd))
+    object.appendString(field: 3, value)
+
+    var editInfo = ProtobufEncoder()
+    editInfo.appendVarint(field: 1, 1)
+    editInfo.appendMessage(field: 2, object.data)
+
+    var batchEdit = ProtobufEncoder()
+    batchEdit.appendVarint(field: 1, UInt64(imeCounter))
+    batchEdit.appendVarint(field: 2, UInt64(fieldCounter))
+    batchEdit.appendMessage(field: 3, editInfo.data)
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 21, batchEdit.data)
+    return message.data
+}
+
+func remoteVoiceBeginFrame(sessionID: Int) -> Data {
+    var voiceBegin = ProtobufEncoder()
+    voiceBegin.appendVarint(field: 1, UInt64(sessionID))
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 30, voiceBegin.data)
+    return message.data
+}
+
 let framer = VarintFramer()
 expect(framer.encodeVarint(0) == Data([0x00]), "zero varint failed")
 expect(framer.encodeVarint(127) == Data([0x7f]), "127 varint failed")
@@ -463,8 +498,36 @@ let longPressEndBytes = try remoteCodec.encode(.key(.select, .release))
 expect(longPressEndBytes == Data([0x52, 0x04, 0x08, 0x17, 0x10, 0x02]), "remote long key end encoding failed")
 let appLinkBytes = try remoteCodec.encode(.appLink(URL(string: "https://x")!))
 expect(appLinkBytes == Data([0xD2, 0x05, 0x0B, 0x0A, 0x09]) + Data("https://x".utf8), "remote app link encoding failed")
-let textEditBytes = try remoteCodec.encode(.text(RemoteTextEdit(imeCounter: 1, fieldCounter: 7, insert: 65)))
-expect(textEditBytes == Data([0xAA, 0x01, 0x08, 0x08, 0x01, 0x10, 0x07, 0x1A, 0x02, 0x10, 0x41]), "remote text edit encoding failed")
+let textEditBytes = try remoteCodec.encode(.text(RemoteTextEdit(imeCounter: 1, fieldCounter: 7, text: "A")))
+expect(
+    textEditBytes == Data([
+        0xAA, 0x01, 0x11,
+        0x08, 0x01,
+        0x10, 0x07,
+        0x1A, 0x0B,
+        0x08, 0x01,
+        0x12, 0x07,
+        0x08, 0x00,
+        0x10, 0x00,
+        0x1A, 0x01, 0x41
+    ]),
+    "remote text edit encoding failed"
+)
+let voiceBeginBytes = try remoteCodec.encode(.voiceBegin(sessionID: 42))
+expect(
+    voiceBeginBytes == Data([0xF2, 0x01, 0x02, 0x08, 0x2A]),
+    "remote voice begin encoding failed"
+)
+let voicePayloadBytes = try remoteCodec.encode(.voicePayload(sessionID: 42, samples: Data([0x01, 0x02])))
+expect(
+    voicePayloadBytes == Data([0xFA, 0x01, 0x06, 0x08, 0x2A, 0x12, 0x02, 0x01, 0x02]),
+    "remote voice payload encoding failed"
+)
+let voiceEndBytes = try remoteCodec.encode(.voiceEnd(sessionID: 42))
+expect(
+    voiceEndBytes == Data([0x82, 0x02, 0x02, 0x08, 0x2A]),
+    "remote voice end encoding failed"
+)
 expect(remoteCodec.encodePingResponse(5) == Data([0x4A, 0x02, 0x08, 0x05]), "remote ping response encoding failed")
 expect(remoteCodec.encodeSetActiveResponse() == Data([0x12, 0x03, 0x08, 0xEE, 0x04]), "remote set active encoding failed")
 expect(
@@ -493,9 +556,21 @@ expect(decodedVolume == .volume(level: 25, maximum: 100, muted: true), "remote v
 let decodedImeStatus = try remoteCodec.decode(remoteImeShowRequestFrame(counter: 9, value: "ab", selectionStart: 1, selectionEnd: 2, label: "Search"))
 expect(
     decodedImeStatus == .textFieldStatus(
-        RemoteTextFieldStatus(counter: 9, value: "ab", selectionStart: 1, selectionEnd: 2, label: "Search")
+        RemoteTextFieldStatus(imeCounter: 1, counter: 9, value: "ab", selectionStart: 1, selectionEnd: 2, label: "Search")
     ),
     "remote IME status decoding failed"
+)
+let decodedImeBatchEdit = try remoteCodec.decode(remoteImeBatchEditFrame(imeCounter: 3, fieldCounter: 9, value: "hey", selectionStart: 2, selectionEnd: 2))
+expect(
+    decodedImeBatchEdit == .textFieldStatus(
+        RemoteTextFieldStatus(imeCounter: 3, counter: 9, value: "hey", selectionStart: 2, selectionEnd: 2)
+    ),
+    "remote IME batch-edit status decoding failed"
+)
+let decodedVoiceBegin = try remoteCodec.decode(remoteVoiceBeginFrame(sessionID: 42))
+expect(
+    decodedVoiceBegin == .voiceBegin(sessionID: 42),
+    "remote voice begin decoding failed"
 )
 
 let sessionTransport = MockRemoteTransport()
@@ -551,15 +626,79 @@ while session.textFieldStatus?.counter != 5, imeAttempts < 2000 {
 expect(session.textFieldStatus?.label == "Search", "session did not track IME status")
 let didSendText = await session.sendText("Hi")
 expect(didSendText, "session text send failed")
-sessionSent = await sessionTransport.waitForSent(count: 8)
-let expectedTextH = framer.frame(try remoteCodec.encode(.text(RemoteTextEdit(imeCounter: 1, fieldCounter: 5, insert: 72))))
-let expectedTextI = framer.frame(try remoteCodec.encode(.text(RemoteTextEdit(imeCounter: 2, fieldCounter: 5, insert: 105))))
+sessionSent = await sessionTransport.waitForSent(count: 7)
+let expectedText = framer.frame(try remoteCodec.encode(.text(RemoteTextEdit(imeCounter: 1, fieldCounter: 5, text: "Hi"))))
 expect(
-    sessionSent.count >= 8
-        && sessionSent[6] == expectedTextH
-        && sessionSent[7] == expectedTextI,
+    sessionSent.count >= 7
+        && sessionSent[6] == expectedText,
     "session text edit frames failed"
 )
+
+await sessionTransport.enqueueIncoming(framer.frame(remoteImeBatchEditFrame(imeCounter: 3, fieldCounter: 8, value: "", selectionStart: 0, selectionEnd: 0)))
+var imeBatchAttempts = 0
+while session.textFieldStatus?.counter != 8, imeBatchAttempts < 2000 {
+    imeBatchAttempts += 1
+    try? await Task.sleep(for: .milliseconds(1))
+}
+expect(session.textFieldStatus?.imeCounter == 3, "session did not track IME batch-edit status")
+let didSendBatchText = await session.sendText("OK")
+expect(didSendBatchText, "session batch text send failed")
+sessionSent = await sessionTransport.waitForSent(count: 8)
+let expectedBatchText = framer.frame(try remoteCodec.encode(.text(RemoteTextEdit(imeCounter: 3, fieldCounter: 8, text: "OK"))))
+expect(
+    sessionSent.count >= 8 && sessionSent[7] == expectedBatchText,
+    "session batch text edit frame failed"
+)
+
+let voiceStart = Task { await session.startVoiceSession(timeout: .milliseconds(200)) }
+sessionSent = await sessionTransport.waitForSent(count: 9)
+expect(
+    sessionSent.count >= 9 && sessionSent[8] == framer.frame(try remoteCodec.encode(.key(.search, .tap))),
+    "voice session should request TV search"
+)
+await sessionTransport.enqueueIncoming(framer.frame(remoteVoiceBeginFrame(sessionID: 42)))
+let voiceStartResult = await voiceStart.value
+expect(voiceStartResult == .started(sessionID: 42), "voice session did not start")
+sessionSent = await sessionTransport.waitForSent(count: 10)
+let expectedVoiceBegin = framer.frame(try remoteCodec.encode(.voiceBegin(sessionID: 42)))
+expect(
+    sessionSent.count >= 10 && sessionSent[9] == expectedVoiceBegin,
+    "voice session begin acknowledgement failed"
+)
+let didSendVoiceSamples = await session.sendVoiceSamples(Data([0x01, 0x02]), sessionID: 42)
+expect(didSendVoiceSamples, "voice samples should send")
+await session.endVoiceSession(sessionID: 42)
+sessionSent = await sessionTransport.waitForSent(count: 12)
+let expectedVoicePayload = framer.frame(try remoteCodec.encode(.voicePayload(sessionID: 42, samples: Data([0x01, 0x02]))))
+let expectedVoiceEnd = framer.frame(try remoteCodec.encode(.voiceEnd(sessionID: 42)))
+expect(
+    sessionSent.count >= 12
+        && sessionSent[10] == expectedVoicePayload
+        && sessionSent[11] == expectedVoiceEnd,
+    "voice session payload/end frames failed"
+)
+
+let prepareTextStore = MemoryDeviceStore()
+let prepareTextDevice = DeviceRecord(name: "Keyboard TV", host: "10.0.0.8", isPaired: true)
+prepareTextStore.saveDevices([prepareTextDevice])
+prepareTextStore.saveSelectedDeviceID(prepareTextDevice.id)
+let prepareTextTransport = MockRemoteTransport()
+let prepareTextModel = RemoteControlModel(
+    discovery: DeviceDiscovery(store: prepareTextStore),
+    session: RemoteSession(transport: prepareTextTransport, configureTimeout: .milliseconds(200))
+)
+await prepareTextTransport.enqueueIncoming(framer.frame(Data([0x0A, 0x02, 0x08, 0x01])))
+let prepareTextTask = Task { await prepareTextModel.prepareTextEntry(timeout: .milliseconds(200)) }
+var prepareTextSent = await prepareTextTransport.waitForSent(count: 2)
+expect(
+    prepareTextSent.count >= 2
+        && prepareTextSent[1] == framer.frame(try remoteCodec.encode(.key(.search, .tap))),
+    "prepare text entry should request TV search"
+)
+await prepareTextTransport.enqueueIncoming(framer.frame(remoteImeShowRequestFrame(counter: 13, value: "", label: "Search")))
+let prepareTextResult = await prepareTextTask.value
+expect(prepareTextResult == .ready, "prepare text entry should become ready")
+expect(prepareTextModel.session.textFieldStatus?.counter == 13, "prepare text entry did not track TV field")
 
 // Overlapping connects to the same device must join one attempt.
 let joinTransport = MockRemoteTransport()

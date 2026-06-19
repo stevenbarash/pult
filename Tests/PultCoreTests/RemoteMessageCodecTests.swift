@@ -25,8 +25,30 @@ func encodesAppLinkLaunch() throws {
 
 @Test
 func encodesTextBatchEdit() throws {
-    let encoded = try codec.encode(.text(RemoteTextEdit(imeCounter: 1, fieldCounter: 7, insert: 65)))
-    #expect(encoded == Data([0xAA, 0x01, 0x08, 0x08, 0x01, 0x10, 0x07, 0x1A, 0x02, 0x10, 0x41]))
+    let encoded = try codec.encode(.text(RemoteTextEdit(imeCounter: 1, fieldCounter: 7, text: "A")))
+    #expect(
+        encoded == Data([
+            0xAA, 0x01, 0x11,
+            0x08, 0x01,
+            0x10, 0x07,
+            0x1A, 0x0B,
+            0x08, 0x01,
+            0x12, 0x07,
+            0x08, 0x00,
+            0x10, 0x00,
+            0x1A, 0x01, 0x41
+        ])
+    )
+}
+
+@Test
+func encodesVoiceMessages() throws {
+    #expect(try codec.encode(.voiceBegin(sessionID: 42)) == Data([0xF2, 0x01, 0x02, 0x08, 0x2A]))
+    #expect(
+        try codec.encode(.voicePayload(sessionID: 42, samples: Data([0x01, 0x02])))
+            == Data([0xFA, 0x01, 0x06, 0x08, 0x2A, 0x12, 0x02, 0x01, 0x02])
+    )
+    #expect(try codec.encode(.voiceEnd(sessionID: 42)) == Data([0x82, 0x02, 0x02, 0x08, 0x2A]))
 }
 
 @Test
@@ -60,6 +82,7 @@ func decodesIncomingMessages() throws {
         try codec.decode(remoteImeShowRequestFrame())
             == .textFieldStatus(
                 RemoteTextFieldStatus(
+                    imeCounter: 1,
                     counter: 7,
                     value: "ab",
                     selectionStart: 1,
@@ -68,6 +91,19 @@ func decodesIncomingMessages() throws {
                 )
             )
     )
+    #expect(
+        try codec.decode(remoteImeBatchEditFrame())
+            == .textFieldStatus(
+                RemoteTextFieldStatus(
+                    imeCounter: 3,
+                    counter: 9,
+                    value: "hey",
+                    selectionStart: 2,
+                    selectionEnd: 2
+                )
+            )
+    )
+    #expect(try codec.decode(remoteVoiceBeginFrame(sessionID: 42)) == .voiceBegin(sessionID: 42))
 }
 
 private func remoteImeShowRequestFrame() -> Data {
@@ -84,5 +120,34 @@ private func remoteImeShowRequestFrame() -> Data {
 
     var message = ProtobufEncoder()
     message.appendMessage(field: 22, showRequest.data)
+    return message.data
+}
+
+private func remoteImeBatchEditFrame() -> Data {
+    var object = ProtobufEncoder()
+    object.appendVarint(field: 1, 2)
+    object.appendVarint(field: 2, 2)
+    object.appendString(field: 3, "hey")
+
+    var editInfo = ProtobufEncoder()
+    editInfo.appendVarint(field: 1, 1)
+    editInfo.appendMessage(field: 2, object.data)
+
+    var batchEdit = ProtobufEncoder()
+    batchEdit.appendVarint(field: 1, 3)
+    batchEdit.appendVarint(field: 2, 9)
+    batchEdit.appendMessage(field: 3, editInfo.data)
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 21, batchEdit.data)
+    return message.data
+}
+
+private func remoteVoiceBeginFrame(sessionID: Int) -> Data {
+    var voiceBegin = ProtobufEncoder()
+    voiceBegin.appendVarint(field: 1, UInt64(sessionID))
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 30, voiceBegin.data)
     return message.data
 }

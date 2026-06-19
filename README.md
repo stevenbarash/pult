@@ -26,6 +26,7 @@ Pult is a native SwiftUI Google TV remote for iOS 27 and later, with App Intents
 - App Group device store shared between app and intents, with persisted device selection.
 - mTLS client identity stored with after-first-unlock keychain protection so headless intents can dial while the device is locked.
 - TV keyboard sheet backed by v2 IME field-status messages and batch-edit text insertion; end-to-end keyboard behavior is validated for `Android.local` as of 2026-06-11 and remains per-TV evidence for other devices.
+- Voice search starts the TV's v2 voice session and streams iPhone microphone audio as PCM 16-bit mono 8 kHz chunks. End-to-end voice behavior remains per-TV unvalidated until a Diagnostics/checklist report or explicit user/device evidence records it.
 
 ## Physical Validation
 

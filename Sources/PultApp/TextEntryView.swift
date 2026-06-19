@@ -55,7 +55,10 @@ struct TextEntryView: View {
         }
         .preferredColorScheme(.dark)
         .task {
-            await model.ensureConnected()
+            let preparation = await model.prepareTextEntry()
+            if case let .failed(message) = preparation {
+                actionFailure = RemoteCommandFailure(message: message)
+            }
             if model.session.textFieldStatus != nil {
                 isFocused = true
             }

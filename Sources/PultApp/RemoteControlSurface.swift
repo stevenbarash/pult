@@ -41,6 +41,7 @@ struct RemoteControlSurface: View {
     let commandFailure: RemoteCommandFailure?
     let send: (RemoteKey) -> Void
     let sendKeyAction: (RemoteKey, KeyAction) -> Void
+    let onVoiceSearch: () -> Void
     let onTextEntry: () -> Void
     let onFavoriteApps: () -> Void
     let onRetryCommand: () -> Void
@@ -620,7 +621,7 @@ struct RemoteControlSurface: View {
             RemoteCircleButton(systemImage: "arrow.uturn.backward", label: "Back", size: keySize) { sendKey(.back) }
             RemoteCircleButton(systemImage: "house", label: "Home", size: keySize) { sendKey(.home) }
             // All glyphs neutral at rest — sage accent only on press/active state.
-            RemoteCircleButton(systemImage: "mic.fill", label: "Voice search", size: keySize) { sendKey(.voiceSearch) }
+            RemoteCircleButton(systemImage: "mic.fill", label: "Voice search", size: keySize, action: onVoiceSearch)
             RemoteCircleButton(systemImage: "keyboard", label: "Text input", size: keySize, action: onTextEntry)
         }
         .frame(maxWidth: .infinity)
