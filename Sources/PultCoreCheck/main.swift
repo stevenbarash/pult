@@ -76,6 +76,20 @@ final class CollectingAppTelemetryRecorder: AppTelemetryRecording, @unchecked Se
     }
 }
 
+@MainActor
+final class CollectingHeadlessWarmWindow: HeadlessWarmWindowMaintaining {
+    private(set) var extendCount = 0
+    private(set) var endCount = 0
+
+    func extend() {
+        extendCount += 1
+    }
+
+    func end() {
+        endCount += 1
+    }
+}
+
 actor FailingConnectRemoteTransport: RemoteTransport {
     private(set) var connectCount = 0
 
@@ -620,6 +634,23 @@ let backgroundReuseOutcome = await backgroundRefreshModel.performHeadlessCommand
 expect(backgroundReuseOutcome == .sent, "fresh headless connection should be reused after background redial")
 let backgroundReuseDialCount = await backgroundRefreshTransport.connectCount
 expect(backgroundReuseDialCount == 2, "fresh headless connection should not redial every locked press")
+
+let warmWindowStore = MemoryDeviceStore()
+let warmWindowDevice = DeviceRecord(name: "Warm TV", host: "10.0.0.7", isPaired: true)
+warmWindowStore.saveDevices([warmWindowDevice])
+warmWindowStore.saveSelectedDeviceID(warmWindowDevice.id)
+let warmWindowTransport = MockRemoteTransport()
+let warmWindow = CollectingHeadlessWarmWindow()
+let warmWindowModel = RemoteControlModel(
+    discovery: DeviceDiscovery(store: warmWindowStore),
+    session: RemoteSession(transport: warmWindowTransport, configureTimeout: .milliseconds(200)),
+    headlessWarmWindow: warmWindow
+)
+await warmWindowTransport.enqueueIncoming(framer.frame(Data([0x0A, 0x02, 0x08, 0x01])))
+let warmWindowOutcome = await warmWindowModel.performHeadlessCommand(.playPause)
+expect(warmWindowOutcome == .sent, "headless warm-window command should send")
+expect(warmWindow.extendCount == 1, "headless command should extend the warm window")
+expect(warmWindow.endCount == 0, "headless command should not end the warm window immediately")
 
 let failedInitialConnectStore = MemoryDeviceStore()
 let failedInitialConnectDevice = DeviceRecord(name: "Offline TV", host: "10.0.0.4", isPaired: true)

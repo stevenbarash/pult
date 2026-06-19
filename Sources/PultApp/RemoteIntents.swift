@@ -7,6 +7,9 @@ import UniformTypeIdentifiers
 #if PULT_APP && canImport(PostHog)
 import PostHog
 #endif
+#if PULT_APP && canImport(UIKit) && os(iOS)
+import UIKit
+#endif
 #if canImport(ActivityKit) && os(iOS)
 import ActivityKit
 #endif
@@ -27,8 +30,63 @@ typealias HeadlessRemoteIntent = AppIntent
 /// app process ever executes perform().
 @MainActor
 enum SharedRemote {
-    static let model = RemoteControlModel(timingRecorder: AppCommandTimingRecorder())
+    static let model = RemoteControlModel(
+        headlessWarmWindow: AppHeadlessWarmWindow.shared,
+        timingRecorder: AppCommandTimingRecorder()
+    )
 }
+
+#if PULT_APP && canImport(UIKit) && os(iOS)
+@MainActor
+private final class AppHeadlessWarmWindow: HeadlessWarmWindowMaintaining {
+    static let shared = AppHeadlessWarmWindow()
+
+    private var taskID: UIBackgroundTaskIdentifier = .invalid
+    private var generation = 0
+
+    private init() {}
+
+    func extend() {
+        endCurrent()
+        generation += 1
+        let currentGeneration = generation
+        let nextTaskID = UIApplication.shared.beginBackgroundTask(withName: "Pult Remote Warm Window") { [weak self] in
+            Task { @MainActor in
+                self?.expire(generation: currentGeneration)
+            }
+        }
+        guard nextTaskID != .invalid else {
+            intentLogger.error("Headless warm window failed to start")
+            return
+        }
+        taskID = nextTaskID
+        intentLogger.debug("Headless warm window extended")
+    }
+
+    func end() {
+        generation += 1
+        endCurrent()
+    }
+
+    private func expire(generation expiringGeneration: Int) {
+        guard generation == expiringGeneration else { return }
+        intentLogger.debug("Headless warm window expired")
+        endCurrent()
+    }
+
+    private func endCurrent() {
+        guard taskID != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(taskID)
+        taskID = .invalid
+    }
+}
+#else
+private struct AppHeadlessWarmWindow: HeadlessWarmWindowMaintaining {
+    static let shared = AppHeadlessWarmWindow()
+    func extend() {}
+    func end() {}
+}
+#endif
 
 private struct AppCommandTimingRecorder: CommandTimingRecording {
     private let diagnosticsRecorder = CommandTimingRecorder()
@@ -405,6 +463,7 @@ struct StartRemoteSessionIntent: HeadlessRemoteIntent {
         guard device.isPaired else {
             return .result(dialog: IntentDialog(stringLiteral: "Open Pult and pair \(device.name) first."))
         }
+        model.extendHeadlessWarmWindow()
         // The remote appears on the lock screen immediately, in "connecting"
         // state, BEFORE the dial: instant feedback for the Control Center /
         // Action button press, and the status updates once the dial settles.
@@ -443,6 +502,7 @@ struct EndRemoteSessionIntent: HeadlessRemoteIntent {
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {
         SharedRemote.model.session.disconnect()
+        SharedRemote.model.endHeadlessWarmWindow()
         #if canImport(ActivityKit) && os(iOS)
         await RemoteActivityController.shared.endAll()
         #endif

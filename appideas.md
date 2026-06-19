@@ -16,7 +16,7 @@ The product is a **Trust Triad: Instant + Trustworthy + There.** Beauty rides on
 
 **Warm Live Session — 🔨**
 *Instant taps + live volume from one persistent-while-visible session.* The measurement pass is shipped (on `main`); the mechanisms below ship once real-TV numbers justify them.
-- **warm window** — background-task grace re-armed per tap, so a burst of taps reuses one live socket
+- **warm window** — v1 shipped: background-task grace is re-armed for headless lock-screen/control interactions, so a burst can reuse one live socket; still needs physical-device timing confirmation before calling the foundation done
 - **heartbeat** — keep the socket healthy so the staleness check stops forcing re-dials
 - **fast cold reconnect** — TLS session resumption + cached TV IP (skip mDNS) for the unavoidable first-tap-after-rest
 - **optimistic feel** — instant press feedback, deliver underneath; honest "reconnecting / tap again" only when it really fails

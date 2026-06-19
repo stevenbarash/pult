@@ -7,6 +7,18 @@ public enum HeadlessCommandOutcome: Equatable, Sendable {
 }
 
 @MainActor
+public protocol HeadlessWarmWindowMaintaining {
+    func extend()
+    func end()
+}
+
+public struct NoopHeadlessWarmWindow: HeadlessWarmWindowMaintaining {
+    public init() {}
+    public func extend() {}
+    public func end() {}
+}
+
+@MainActor
 @Observable
 public final class RemoteControlModel {
     public let discovery: DeviceDiscovery
@@ -23,6 +35,7 @@ public final class RemoteControlModel {
     private let makePairingTransport: @Sendable () -> any RemoteTransport
     private var pairingSession: PairingSession?
     private var headlessTask: Task<HeadlessCommandOutcome, Never>?
+    private let headlessWarmWindow: any HeadlessWarmWindowMaintaining
     private let timingRecorder: any CommandTimingRecording
     private let telemetryRecorder: any AppTelemetryRecording
 
@@ -72,6 +85,7 @@ public final class RemoteControlModel {
         session: RemoteSession = RemoteSession(),
         identityProvider: any ClientIdentityProviding = KeychainClientIdentityStore.shared,
         makePairingTransport: @escaping @Sendable () -> any RemoteTransport = { NetworkRemoteTransport() },
+        headlessWarmWindow: any HeadlessWarmWindowMaintaining = NoopHeadlessWarmWindow(),
         timingRecorder: any CommandTimingRecording = CommandTimingRecorder(),
         telemetryRecorder: any AppTelemetryRecording = OSLogAppTelemetryRecorder(category: .command)
     ) {
@@ -79,6 +93,7 @@ public final class RemoteControlModel {
         self.session = session
         self.identityProvider = identityProvider
         self.makePairingTransport = makePairingTransport
+        self.headlessWarmWindow = headlessWarmWindow
         self.timingRecorder = timingRecorder
         self.telemetryRecorder = telemetryRecorder
         self.selectedDevice = discovery.devices.first(where: { $0.id == discovery.selectedDeviceID })
@@ -151,6 +166,7 @@ public final class RemoteControlModel {
     /// serialized: rapid taps queue up rather than interleaving their
     /// connect/press/redial sequences and tearing down each other's sockets.
     public func performHeadlessCommand(_ key: RemoteKey) async -> HeadlessCommandOutcome {
+        headlessWarmWindow.extend()
         let previous = headlessTask
         let task = Task { () -> HeadlessCommandOutcome in
             _ = await previous?.value
@@ -158,6 +174,14 @@ public final class RemoteControlModel {
         }
         headlessTask = task
         return await task.value
+    }
+
+    public func extendHeadlessWarmWindow() {
+        headlessWarmWindow.extend()
+    }
+
+    public func endHeadlessWarmWindow() {
+        headlessWarmWindow.end()
     }
 
     /// Reuses a live session when possible and redials once when a connection

@@ -7,13 +7,32 @@ private let codec = AndroidTVRemoteMessageCodec()
 private let tvConfigureFrame = Data([0x0A, 0x02, 0x08, 0x01])
 
 @MainActor
-private func makeModel(transport: any RemoteTransport, device: DeviceRecord) -> RemoteControlModel {
+private final class SpyHeadlessWarmWindow: HeadlessWarmWindowMaintaining {
+    private(set) var extendCount = 0
+    private(set) var endCount = 0
+
+    func extend() {
+        extendCount += 1
+    }
+
+    func end() {
+        endCount += 1
+    }
+}
+
+@MainActor
+private func makeModel(
+    transport: any RemoteTransport,
+    device: DeviceRecord,
+    headlessWarmWindow: any HeadlessWarmWindowMaintaining = NoopHeadlessWarmWindow()
+) -> RemoteControlModel {
     let store = MemoryDeviceStore()
     store.records = [device]
     store.selectedID = device.id
     return RemoteControlModel(
         discovery: DeviceDiscovery(store: store),
-        session: RemoteSession(transport: transport, configureTimeout: .milliseconds(200))
+        session: RemoteSession(transport: transport, configureTimeout: .milliseconds(200)),
+        headlessWarmWindow: headlessWarmWindow
     )
 }
 
@@ -30,6 +49,22 @@ func headlessCommandConnectsAndSendsKey() async throws {
     #expect(outcome == .sent)
     let sent = await transport.waitForSent(count: 2)
     #expect(sent.last == framer.frame(try codec.encode(.key(.playPause, .tap))))
+}
+
+@MainActor
+@Test
+func headlessCommandExtendsWarmWindowBeforeSending() async throws {
+    let transport = MockTransport()
+    let warmWindow = SpyHeadlessWarmWindow()
+    let device = DeviceRecord(name: "TV", host: "192.168.1.10", isPaired: true)
+    let model = makeModel(transport: transport, device: device, headlessWarmWindow: warmWindow)
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+
+    let outcome = await model.performHeadlessCommand(.playPause)
+
+    #expect(outcome == .sent)
+    #expect(warmWindow.extendCount == 1)
+    #expect(warmWindow.endCount == 0)
 }
 
 @MainActor
