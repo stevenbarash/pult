@@ -596,6 +596,31 @@ expect(foregroundRefreshModel.session.connectionState == .connected, "foreground
 let foregroundRefreshDialCount = await foregroundRefreshTransport.connectCount
 expect(foregroundRefreshDialCount == 2, "foreground refresh should redial an idle connected session")
 
+let backgroundRefreshStore = MemoryDeviceStore()
+let backgroundRefreshDevice = DeviceRecord(name: "Background TV", host: "10.0.0.6", isPaired: true)
+backgroundRefreshStore.saveDevices([backgroundRefreshDevice])
+backgroundRefreshStore.saveSelectedDeviceID(backgroundRefreshDevice.id)
+let backgroundRefreshTransport = MockRemoteTransport()
+let backgroundRefreshModel = RemoteControlModel(
+    discovery: DeviceDiscovery(store: backgroundRefreshStore),
+    session: RemoteSession(transport: backgroundRefreshTransport, configureTimeout: .milliseconds(200))
+)
+await backgroundRefreshTransport.enqueueIncoming(framer.frame(Data([0x0A, 0x02, 0x08, 0x01])))
+await backgroundRefreshModel.ensureConnected()
+expect(backgroundRefreshModel.session.connectionState == .connected, "background refresh setup did not connect")
+backgroundRefreshModel.markConnectionPossiblyStale()
+let backgroundRefresh = Task { await backgroundRefreshModel.performHeadlessCommand(.home) }
+try? await Task.sleep(for: .milliseconds(20))
+await backgroundRefreshTransport.enqueueIncoming(framer.frame(Data([0x0A, 0x02, 0x08, 0x01])))
+let backgroundRefreshOutcome = await backgroundRefresh.value
+expect(backgroundRefreshOutcome == .sent, "background-stale headless command should redial and send")
+let backgroundRefreshDialCount = await backgroundRefreshTransport.connectCount
+expect(backgroundRefreshDialCount == 2, "background-stale headless command should redial once")
+let backgroundReuseOutcome = await backgroundRefreshModel.performHeadlessCommand(.select)
+expect(backgroundReuseOutcome == .sent, "fresh headless connection should be reused after background redial")
+let backgroundReuseDialCount = await backgroundRefreshTransport.connectCount
+expect(backgroundReuseDialCount == 2, "fresh headless connection should not redial every locked press")
+
 let failedInitialConnectStore = MemoryDeviceStore()
 let failedInitialConnectDevice = DeviceRecord(name: "Offline TV", host: "10.0.0.4", isPaired: true)
 failedInitialConnectStore.saveDevices([failedInitialConnectDevice])

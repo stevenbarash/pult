@@ -79,8 +79,11 @@ struct RemoteRootView: View {
             await RemoteIntentIndex.refreshDevices(model.discovery.devices)
         }
         .onChange(of: scenePhase) { _, newPhase in
-            guard newPhase == .active else { return }
-            Task { await autoConnectIfNeeded(staleAfter: 30) }
+            if newPhase == .active {
+                Task { await autoConnectIfNeeded(staleAfter: 30) }
+            } else {
+                model.markConnectionPossiblyStale()
+            }
         }
         .sheet(item: presentedSheetBinding, onDismiss: handleSheetDismiss, content: sheetContent)
     }

@@ -130,6 +130,10 @@ public final class RemoteControlModel {
         await session.connect(to: selectedDevice)
     }
 
+    public func markConnectionPossiblyStale() {
+        session.markConnectionPossiblyStale()
+    }
+
     public func sendKey(
         _ key: RemoteKey,
         action: KeyAction = .tap,

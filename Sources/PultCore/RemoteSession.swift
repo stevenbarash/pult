@@ -64,6 +64,7 @@ public final class RemoteSession {
     private var connectTask: Task<Void, Never>?
     private var connectAttempt = 0
     private var nextImeCounter = 0
+    private var connectionMarkedPossiblyStale = false
     private let dialSignposter = OSSignposter(subsystem: "app.pult", category: "dial")
     private let telemetryRecorder: any AppTelemetryRecording
 
@@ -92,6 +93,7 @@ public final class RemoteSession {
         connectAttempt += 1
         let attempt = connectAttempt
         self.device = device
+        connectionMarkedPossiblyStale = false
         connectionState = .connecting
         lastError = nil
         textFieldStatus = nil
@@ -158,6 +160,7 @@ public final class RemoteSession {
         connectAttempt += 1
         readTask?.cancel()
         readTask = nil
+        connectionMarkedPossiblyStale = false
         connectionState = .disconnected
         textFieldStatus = nil
         volumeStatus = nil
@@ -167,12 +170,20 @@ public final class RemoteSession {
         }
     }
 
+    public func markConnectionPossiblyStale() {
+        guard connectionState == .connected else { return }
+        connectionMarkedPossiblyStale = true
+    }
+
     public func needsConnectionRefresh(
         for device: DeviceRecord,
         idleTimeout: TimeInterval = 90,
         now: Date = .now
     ) -> Bool {
         guard connectionState == .connected, self.device?.id == device.id else {
+            return true
+        }
+        if connectionMarkedPossiblyStale {
             return true
         }
         guard idleTimeout.isFinite else {
