@@ -44,6 +44,42 @@ func sessionAnswersSetActiveAndPing() async {
 
 @MainActor
 @Test
+func sessionStoresProtocolConfigureSetActiveAndStartObservations() async {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    let device = DeviceRecord(name: "TV", host: "192.168.1.10")
+    await transport.enqueueIncoming(framer.frame(remoteConfigureFrame(code: 64)))
+
+    await session.connect(to: device)
+
+    let sent = await transport.waitForSent(count: 1)
+    #expect(sent.first == framer.frame(codec.encodeConfigureResponse()))
+    #expect(session.protocolState.negotiation.inboundConfigureCode?.value.rawValue == 64)
+    #expect(session.protocolState.negotiation.inboundConfigureCode?.source == "remote_configure.code1")
+    #expect(session.protocolState.negotiation.inboundConfigureCode?.deviceID == device.id)
+    #expect(session.protocolState.negotiation.outboundConfigureCode?.value.rawValue == 622)
+    #expect(session.protocolState.negotiation.outboundConfigureCode?.source == "client.remote_configure.code1")
+    #expect(session.protocolState.deviceInfo?.value.vendor == "Google")
+    #expect(session.protocolState.deviceInfo?.value.model == "TV")
+    #expect(session.protocolState.deviceInfo?.source == "remote_configure.device_info")
+
+    await transport.enqueueIncoming(framer.frame(remoteSetActiveFrame(active: 622)))
+    await transport.enqueueIncoming(framer.frame(remoteStartFrame(started: true)))
+    _ = await transport.waitForSent(count: 2)
+    for _ in 0..<2000 where session.protocolState.remoteStart == nil {
+        try? await Task.sleep(for: .milliseconds(1))
+    }
+
+    #expect(session.protocolState.negotiation.inboundSetActiveCode?.value.rawValue == 622)
+    #expect(session.protocolState.negotiation.inboundSetActiveCode?.source == "remote_set_active.active")
+    #expect(session.protocolState.negotiation.outboundSetActiveCode?.value.rawValue == 622)
+    #expect(session.protocolState.negotiation.outboundSetActiveCode?.source == "client.remote_set_active.active")
+    #expect(session.protocolState.remoteStart?.value == true)
+    #expect(session.protocolState.remoteStart?.source == "remote_start.started")
+}
+
+@MainActor
+@Test
 func volumeStatusTracksLatestTvUpdate() async {
     let transport = MockTransport()
     let session = RemoteSession(transport: transport)
@@ -133,6 +169,59 @@ func textEntryUsesLatestImeStatus() async throws {
     let sent = await transport.waitForSent(count: 2)
     #expect(sent.count >= 2)
     #expect(sent[1] == framer.frame(try codec.encode(.text(RemoteTextEdit(imeCounter: 1, fieldCounter: 9, text: "Hi")))))
+}
+
+@MainActor
+@Test
+func sessionStoresImeKeyInjectAndBatchObservations() async throws {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    await transport.enqueueIncoming(framer.frame(tvConfigureFrame))
+    await session.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+    _ = await transport.waitForSent(count: 1)
+
+    await transport.enqueueIncoming(framer.frame(remoteImeKeyInjectFrame(
+        packageName: "com.netflix.ninja",
+        appLabel: "Netflix",
+        counter: 42,
+        value: "search",
+        selectionStart: 6,
+        selectionEnd: 6
+    )))
+    for _ in 0..<2000 where session.textFieldStatus?.counter != 42 {
+        try? await Task.sleep(for: .milliseconds(1))
+    }
+
+    #expect(session.textFieldStatus?.value == "search")
+    #expect(session.protocolState.imeApp?.value.appPackage == "com.netflix.ninja")
+    #expect(session.protocolState.imeApp?.value.label == "Netflix")
+    #expect(session.protocolState.imeApp?.source == "remote_ime_key_inject.app_info")
+    #expect(session.protocolState.lastImeKeyInject?.value.textFieldStatus?.counter == 42)
+    #expect(session.protocolState.lastImeKeyInject?.source == "remote_ime_key_inject")
+
+    await transport.enqueueIncoming(framer.frame(remoteImeBatchEditFrame(
+        imeCounter: 3,
+        fieldCounter: 43,
+        edits: [
+            RemoteEditFixture(insert: 1, selectionStart: 3, selectionEnd: 3, value: "sea"),
+            RemoteEditFixture(insert: 1, selectionStart: 6, selectionEnd: 6, value: "search")
+        ]
+    )))
+    for _ in 0..<2000 where session.textFieldStatus?.counter != 43 {
+        try? await Task.sleep(for: .milliseconds(1))
+    }
+
+    #expect(session.textFieldStatus == RemoteTextFieldStatus(
+        imeCounter: 3,
+        counter: 43,
+        value: "search",
+        selectionStart: 6,
+        selectionEnd: 6
+    ))
+    #expect(session.protocolState.lastImeBatchEdit?.value.imeCounter == 3)
+    #expect(session.protocolState.lastImeBatchEdit?.value.fieldCounter == 43)
+    #expect(session.protocolState.lastImeBatchEdit?.value.edits.count == 2)
+    #expect(session.protocolState.lastImeBatchEdit?.source == "remote_ime_batch_edit")
 }
 
 @MainActor
@@ -294,6 +383,40 @@ func overlappingConnectsToSameDeviceShareOneAttempt() async {
 
 @MainActor
 @Test
+func overlappingConnectsToSameDeviceDoNotResetProtocolObservations() async {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    let device = DeviceRecord(name: "TV", host: "192.168.1.10")
+
+    let first = Task { await session.connect(to: device) }
+    try? await Task.sleep(for: .milliseconds(20))
+    let second = Task { await session.connect(to: device) }
+    await transport.enqueueIncoming(framer.frame(remoteConfigureFrame(code: 64)))
+    await first.value
+    await second.value
+
+    #expect(session.protocolState.negotiation.inboundConfigureCode?.value.rawValue == 64)
+    let dialCount = await transport.connectCount
+    #expect(dialCount == 1)
+}
+
+@MainActor
+@Test
+func disconnectResetsProtocolObservations() async {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    await transport.enqueueIncoming(framer.frame(remoteConfigureFrame(code: 64)))
+    await session.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+
+    #expect(session.protocolState.negotiation.inboundConfigureCode != nil)
+    session.disconnect()
+
+    #expect(session.connectionState == .disconnected)
+    #expect(session.protocolState == RemoteSessionProtocolState())
+}
+
+@MainActor
+@Test
 func switchingDevicesAbandonsStaleHandshake() async {
     let transport = MockTransport()
     let session = RemoteSession(transport: transport, configureTimeout: .milliseconds(80))
@@ -398,4 +521,166 @@ private func remoteVoiceBeginFrame(sessionID: Int) -> Data {
     var message = ProtobufEncoder()
     message.appendMessage(field: 30, voiceBegin.data)
     return message.data
+}
+
+private struct RemoteEditFixture {
+    var insert: Int?
+    var selectionStart: Int?
+    var selectionEnd: Int?
+    var value: String?
+}
+
+private func remoteConfigureFrame(
+    code: UInt64? = 64,
+    vendor: String? = "Google",
+    model: String? = "TV",
+    packageName: String? = "com.google.android.tv.remote.service",
+    appVersion: String? = "5.2.473254133"
+) -> Data {
+    var deviceInfo = ProtobufEncoder()
+    if let model {
+        deviceInfo.appendString(field: 1, model)
+    }
+    if let vendor {
+        deviceInfo.appendString(field: 2, vendor)
+    }
+    deviceInfo.appendVarint(field: 3, 1)
+    deviceInfo.appendString(field: 4, "1")
+    if let packageName {
+        deviceInfo.appendString(field: 5, packageName)
+    }
+    if let appVersion {
+        deviceInfo.appendString(field: 6, appVersion)
+    }
+
+    var configure = ProtobufEncoder()
+    if let code {
+        configure.appendVarint(field: 1, code)
+    }
+    configure.appendMessage(field: 2, deviceInfo.data)
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 1, configure.data)
+    return message.data
+}
+
+private func remoteSetActiveFrame(active: UInt64?) -> Data {
+    var setActive = ProtobufEncoder()
+    if let active {
+        setActive.appendVarint(field: 1, active)
+    }
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 2, setActive.data)
+    return message.data
+}
+
+private func remoteStartFrame(started: Bool) -> Data {
+    var start = ProtobufEncoder()
+    start.appendVarint(field: 1, started ? 1 : 0)
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 40, start.data)
+    return message.data
+}
+
+private func remoteImeKeyInjectFrame(
+    packageName: String?,
+    appLabel: String?,
+    counter: Int?,
+    value: String?,
+    selectionStart: Int?,
+    selectionEnd: Int?
+) -> Data {
+    var imeKeyInject = ProtobufEncoder()
+    imeKeyInject.appendMessage(
+        field: 1,
+        remoteAppInfoPayload(packageName: packageName, appLabel: appLabel, counter: counter)
+    )
+    imeKeyInject.appendMessage(
+        field: 2,
+        remoteTextFieldStatusPayload(
+            counter: counter,
+            value: value,
+            selectionStart: selectionStart,
+            selectionEnd: selectionEnd
+        )
+    )
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 20, imeKeyInject.data)
+    return message.data
+}
+
+private func remoteImeBatchEditFrame(
+    imeCounter: Int?,
+    fieldCounter: Int?,
+    edits: [RemoteEditFixture]
+) -> Data {
+    var batchEdit = ProtobufEncoder()
+    if let imeCounter {
+        batchEdit.appendVarint(field: 1, UInt64(imeCounter))
+    }
+    if let fieldCounter {
+        batchEdit.appendVarint(field: 2, UInt64(fieldCounter))
+    }
+    for edit in edits {
+        var object = ProtobufEncoder()
+        if let selectionStart = edit.selectionStart {
+            object.appendVarint(field: 1, UInt64(selectionStart))
+        }
+        if let selectionEnd = edit.selectionEnd {
+            object.appendVarint(field: 2, UInt64(selectionEnd))
+        }
+        if let value = edit.value {
+            object.appendString(field: 3, value)
+        }
+
+        var editInfo = ProtobufEncoder()
+        if let insert = edit.insert {
+            editInfo.appendVarint(field: 1, UInt64(insert))
+        }
+        editInfo.appendMessage(field: 2, object.data)
+        batchEdit.appendMessage(field: 3, editInfo.data)
+    }
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 21, batchEdit.data)
+    return message.data
+}
+
+private func remoteAppInfoPayload(packageName: String?, appLabel: String?, counter: Int?) -> Data {
+    var appInfo = ProtobufEncoder()
+    if let counter {
+        appInfo.appendVarint(field: 1, UInt64(counter))
+    }
+    if let appLabel {
+        appInfo.appendString(field: 10, appLabel)
+    }
+    if let packageName {
+        appInfo.appendString(field: 12, packageName)
+    }
+    return appInfo.data
+}
+
+private func remoteTextFieldStatusPayload(
+    counter: Int?,
+    value: String?,
+    selectionStart: Int?,
+    selectionEnd: Int?
+) -> Data {
+    var status = ProtobufEncoder()
+    if let counter {
+        status.appendVarint(field: 1, UInt64(counter))
+    }
+    if let value {
+        status.appendString(field: 2, value)
+    }
+    if let selectionStart {
+        status.appendVarint(field: 3, UInt64(selectionStart))
+    }
+    if let selectionEnd {
+        status.appendVarint(field: 4, UInt64(selectionEnd))
+    }
+    return status.data
 }

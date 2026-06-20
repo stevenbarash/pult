@@ -30,6 +30,69 @@ func remoteImeShowRequestFrame(
     return message.data
 }
 
+func remoteConfigureFrame(
+    code: UInt64? = 64,
+    vendor: String? = "Google",
+    model: String? = "TV",
+    packageName: String? = "com.google.android.tv.remote.service",
+    appVersion: String? = "5.2.473254133"
+) -> Data {
+    var deviceInfo = ProtobufEncoder()
+    if let model {
+        deviceInfo.appendString(field: 1, model)
+    }
+    if let vendor {
+        deviceInfo.appendString(field: 2, vendor)
+    }
+    deviceInfo.appendVarint(field: 3, 1)
+    deviceInfo.appendString(field: 4, "1")
+    if let packageName {
+        deviceInfo.appendString(field: 5, packageName)
+    }
+    if let appVersion {
+        deviceInfo.appendString(field: 6, appVersion)
+    }
+
+    var configure = ProtobufEncoder()
+    if let code {
+        configure.appendVarint(field: 1, code)
+    }
+    configure.appendMessage(field: 2, deviceInfo.data)
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 1, configure.data)
+    return message.data
+}
+
+func remoteSetActiveFrame(active: UInt64?) -> Data {
+    var setActive = ProtobufEncoder()
+    if let active {
+        setActive.appendVarint(field: 1, active)
+    }
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 2, setActive.data)
+    return message.data
+}
+
+func remoteStartFrame(started: Bool) -> Data {
+    var start = ProtobufEncoder()
+    start.appendVarint(field: 1, started ? 1 : 0)
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 40, start.data)
+    return message.data
+}
+
+func remoteStartWithoutStartedFieldFrame() -> Data {
+    var start = ProtobufEncoder()
+    start.appendString(field: 2, "ignored")
+
+    var message = ProtobufEncoder()
+    message.appendMessage(field: 40, start.data)
+    return message.data
+}
+
 func remoteImeBatchEditFrame(
     imeCounter: Int,
     fieldCounter: Int,
@@ -544,13 +607,30 @@ expect(
 )
 
 let decodedConfigure = try remoteCodec.decode(Data([0x0A, 0x02, 0x08, 0x01]))
-expect(decodedConfigure == .configure, "remote configure decoding failed")
-let decodedSetActive = try remoteCodec.decode(Data([0x12, 0x00]))
-expect(decodedSetActive == .setActive, "remote set active decoding failed")
+if case let .configure(request) = decodedConfigure {
+    expect(request.code?.rawValue == 1, "remote configure code decoding failed")
+} else {
+    expect(false, "remote configure decoding failed")
+}
+let decodedSetActive = try remoteCodec.decode(remoteSetActiveFrame(active: 622))
+if case let .setActive(request) = decodedSetActive {
+    expect(request.active?.rawValue == 622, "remote set active decoding failed")
+} else {
+    expect(false, "remote set active decoding failed")
+}
+let observedFeatureCode = RemoteProtocolCode(rawValue: 622)
+expect(
+    observedFeatureCode.labels == ["key", "ime", "voice", "powerCommandCapability", "volume", "appLink"],
+    "remote protocol feature labels failed"
+)
+expect(!observedFeatureCode.features.contains(.unknown1), "remote protocol feature code should not include unknown1")
+expect(observedFeatureCode.unknownBits == 0, "remote protocol feature code should not have unknown bits")
 let decodedPing = try remoteCodec.decode(Data([0x42, 0x02, 0x08, 0x2A]))
 expect(decodedPing == .pingRequest(42), "remote ping request decoding failed")
 let decodedStart = try remoteCodec.decode(Data([0xC2, 0x02, 0x02, 0x08, 0x01]))
 expect(decodedStart == .started(true), "remote start decoding failed")
+let decodedStartWithoutStartedField = try remoteCodec.decode(remoteStartWithoutStartedFieldFrame())
+expect(decodedStartWithoutStartedField == .other, "remote start without started should decode as other")
 let decodedVolume = try remoteCodec.decode(Data([0x92, 0x03, 0x06, 0x30, 0x64, 0x38, 0x19, 0x40, 0x01]))
 expect(decodedVolume == .volume(level: 25, maximum: 100, muted: true), "remote volume decoding failed")
 let decodedImeStatus = try remoteCodec.decode(remoteImeShowRequestFrame(counter: 9, value: "ab", selectionStart: 1, selectionEnd: 2, label: "Search"))
@@ -561,12 +641,20 @@ expect(
     "remote IME status decoding failed"
 )
 let decodedImeBatchEdit = try remoteCodec.decode(remoteImeBatchEditFrame(imeCounter: 3, fieldCounter: 9, value: "hey", selectionStart: 2, selectionEnd: 2))
-expect(
-    decodedImeBatchEdit == .textFieldStatus(
-        RemoteTextFieldStatus(imeCounter: 3, counter: 9, value: "hey", selectionStart: 2, selectionEnd: 2)
-    ),
-    "remote IME batch-edit status decoding failed"
-)
+if case let .imeBatchEdit(batchObservation) = decodedImeBatchEdit {
+    expect(
+        batchObservation.derivedTextFieldStatus == RemoteTextFieldStatus(
+            imeCounter: 3,
+            counter: 9,
+            value: "hey",
+            selectionStart: 2,
+            selectionEnd: 2
+        ),
+        "remote IME batch-edit status decoding failed"
+    )
+} else {
+    expect(false, "remote IME batch-edit observation decoding failed")
+}
 let decodedVoiceBegin = try remoteCodec.decode(remoteVoiceBeginFrame(sessionID: 42))
 expect(
     decodedVoiceBegin == .voiceBegin(sessionID: 42),
@@ -593,6 +681,48 @@ sessionSent = await sessionTransport.waitForSent(count: 3)
 expect(sessionSent.count >= 3 && sessionSent[2] == framer.frame(remoteCodec.encodePingResponse(42)), "session ping response failed")
 expect(session.lastReceivedAt != nil, "session should record received protocol frames")
 expect(session.lastSentAt != nil, "session should record sent protocol frames")
+
+let protocolStateTransport = MockRemoteTransport()
+let protocolStateSession = RemoteSession(transport: protocolStateTransport)
+await protocolStateTransport.enqueueIncoming(framer.frame(remoteConfigureFrame(code: 64)))
+await protocolStateTransport.enqueueIncoming(framer.frame(remoteStartFrame(started: true)))
+await protocolStateSession.connect(to: DeviceRecord(name: "Protocol TV", host: "192.168.1.11"))
+var protocolStateSent = await protocolStateTransport.waitForSent(count: 1)
+var protocolStartAttempts = 0
+while protocolStateSession.protocolState.remoteStart == nil, protocolStartAttempts < 2000 {
+    protocolStartAttempts += 1
+    try? await Task.sleep(for: .milliseconds(1))
+}
+expect(
+    protocolStateSession.protocolState.negotiation.inboundConfigureCode?.value.rawValue == 64,
+    "session protocol state should store inbound configure code"
+)
+expect(
+    protocolStateSession.protocolState.negotiation.outboundConfigureCode?.value.rawValue == 622,
+    "session protocol state should store outbound configure code"
+)
+expect(
+    protocolStateSession.protocolState.remoteStart?.value == true,
+    "session protocol state should store remote start observation"
+)
+expect(
+    protocolStateSent.first == framer.frame(remoteCodec.encodeConfigureResponse()),
+    "session protocol state configure response bytes failed"
+)
+await protocolStateTransport.enqueueIncoming(framer.frame(remoteSetActiveFrame(active: 64)))
+protocolStateSent = await protocolStateTransport.waitForSent(count: 2)
+expect(
+    protocolStateSession.protocolState.negotiation.inboundSetActiveCode?.value.rawValue == 64,
+    "session protocol state should store inbound set-active code"
+)
+expect(
+    protocolStateSession.protocolState.negotiation.outboundSetActiveCode?.value.rawValue == 622,
+    "session protocol state should store outbound set-active code"
+)
+expect(
+    protocolStateSent.count >= 2 && protocolStateSent[1] == framer.frame(remoteCodec.encodeSetActiveResponse()),
+    "session protocol state set-active response bytes failed"
+)
 
 await sessionTransport.enqueueIncoming(framer.frame(Data([0x92, 0x03, 0x06, 0x30, 0x64, 0x38, 0x19, 0x40, 0x01])))
 var volumeAttempts = 0
