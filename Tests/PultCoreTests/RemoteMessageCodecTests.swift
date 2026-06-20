@@ -117,13 +117,13 @@ func protocolFeatureCodeDecoding() {
     #expect(observed.features.contains(.key))
     #expect(observed.features.contains(.ime))
     #expect(observed.features.contains(.voice))
-    #expect(observed.features.contains(.unknown1))
+    #expect(!observed.features.contains(.unknown1))
     #expect(observed.features.contains(.powerCommandCapability))
     #expect(observed.features.contains(.volume))
     #expect(observed.features.contains(.appLink))
     #expect(!observed.features.contains(.ping))
     #expect(observed.unknownBits == 0)
-    #expect(observed.labels == ["key", "ime", "voice", "unknown1", "powerCommandCapability", "volume", "appLink"])
+    #expect(observed.labels == ["key", "ime", "voice", "powerCommandCapability", "volume", "appLink"])
 
     let unknown = RemoteProtocolCode(rawValue: 1024 + 64)
     #expect(unknown.features == [.volume])
@@ -174,13 +174,15 @@ func imeObservationsPreserveAppAndEdits() throws {
     #expect(batchObservation.imeCounter == 3)
     #expect(batchObservation.fieldCounter == 43)
     #expect(batchObservation.edits.count == 2)
-    #expect(batchObservation.edits.map(\.editType) == [1, 1])
+    #expect(batchObservation.edits[0].editType == 1)
+    #expect(batchObservation.edits[1].editType == 1)
     #expect(batchObservation.edits[0].object?.value == "sea")
     #expect(batchObservation.edits[1].object?.value == "search")
     #expect(batchObservation.edits[1].object?.selectionStart == 6)
     #expect(batchObservation.edits[1].object?.selectionEnd == 6)
+    let status = try #require(batchObservation.derivedTextFieldStatus)
     #expect(
-        batchObservation.derivedTextFieldStatus == RemoteTextFieldStatus(
+        status == RemoteTextFieldStatus(
             imeCounter: 3,
             counter: 43,
             value: "search",
@@ -190,31 +192,140 @@ func imeObservationsPreserveAppAndEdits() throws {
     )
 }
 
+@Test
+func missingObservationScalarsRemainAbsent() throws {
+    switch try codec.decode(remoteConfigureFrame(
+        code: nil,
+        vendor: nil,
+        model: nil,
+        packageName: nil,
+        appVersion: nil,
+        includeDeviceInfo: true
+    )) {
+    case let .configure(request):
+        #expect(request.code == nil)
+        let deviceInfo = try #require(request.deviceInfo)
+        #expect(deviceInfo.model == nil)
+        #expect(deviceInfo.vendor == nil)
+        #expect(deviceInfo.unknown1 == nil)
+        #expect(deviceInfo.unknown2 == nil)
+        #expect(deviceInfo.packageName == nil)
+        #expect(deviceInfo.appVersion == nil)
+    default:
+        Issue.record("expected configure request")
+    }
+
+    switch try codec.decode(remoteImeKeyInjectFrame(
+        packageName: nil,
+        appLabel: nil,
+        counter: nil,
+        value: nil,
+        selectionStart: nil,
+        selectionEnd: nil
+    )) {
+    case let .imeKeyInject(observation):
+        let appInfo = try #require(observation.appInfo)
+        #expect(appInfo.counter == nil)
+        #expect(appInfo.unknownInt2 == nil)
+        #expect(appInfo.unknownInt3 == nil)
+        #expect(appInfo.unknownString4 == nil)
+        #expect(appInfo.unknownInt7 == nil)
+        #expect(appInfo.unknownInt8 == nil)
+        #expect(appInfo.label == nil)
+        #expect(appInfo.appPackage == nil)
+        #expect(appInfo.unknownInt13 == nil)
+    default:
+        Issue.record("expected IME key-inject observation")
+    }
+
+    switch try codec.decode(remoteImeBatchEditFrame(
+        imeCounter: nil,
+        fieldCounter: nil,
+        edits: [
+            RemoteEditFixture(insert: nil, selectionStart: nil, selectionEnd: nil, value: nil)
+        ]
+    )) {
+    case let .imeBatchEdit(observation):
+        #expect(observation.imeCounter == nil)
+        #expect(observation.fieldCounter == nil)
+        #expect(observation.edits.count == 1)
+        #expect(observation.edits[0].editType == nil)
+        let object = try #require(observation.edits[0].object)
+        #expect(object.value == nil)
+        #expect(object.selectionStart == nil)
+        #expect(object.selectionEnd == nil)
+        #expect(observation.derivedTextFieldStatus == nil)
+    default:
+        Issue.record("expected IME batch edit observation")
+    }
+}
+
+@Test
+func malformedOptionalNestedObservationsPreserveSiblingFields() throws {
+    switch try codec.decode(remoteConfigureFrame(code: 64, deviceInfoPayload: malformedStringFieldPayload())) {
+    case let .configure(request):
+        #expect(request.code?.rawValue == 64)
+        #expect(request.deviceInfo == nil)
+    default:
+        Issue.record("expected configure request")
+    }
+
+    switch try codec.decode(remoteImeKeyInjectFrame(
+        appInfoPayload: malformedStringFieldPayload(),
+        textFieldStatusPayload: remoteTextFieldStatusPayload(counter: 42, value: "search", selectionStart: 6, selectionEnd: 6)
+    )) {
+    case let .imeKeyInject(observation):
+        #expect(observation.appInfo == nil)
+        #expect(observation.textFieldStatus?.counter == 42)
+        #expect(observation.textFieldStatus?.value == "search")
+        #expect(observation.textFieldStatus?.selectionStart == 6)
+        #expect(observation.textFieldStatus?.selectionEnd == 6)
+    default:
+        Issue.record("expected IME key-inject observation")
+    }
+
+    switch try codec.decode(remoteImeKeyInjectFrame(
+        appInfoPayload: remoteAppInfoPayload(packageName: "com.netflix.ninja", appLabel: "Netflix", counter: 42),
+        textFieldStatusPayload: malformedStringFieldPayload()
+    )) {
+    case let .imeKeyInject(observation):
+        #expect(observation.appInfo?.appPackage == "com.netflix.ninja")
+        #expect(observation.appInfo?.label == "Netflix")
+        #expect(observation.appInfo?.counter == 42)
+        #expect(observation.textFieldStatus == nil)
+    default:
+        Issue.record("expected IME key-inject observation")
+    }
+}
+
 private struct RemoteEditFixture {
-    var insert: Int
-    var selectionStart: Int
-    var selectionEnd: Int
-    var value: String
+    var insert: Int?
+    var selectionStart: Int?
+    var selectionEnd: Int?
+    var value: String?
 }
 
 private func remoteConfigureFrame(
-    code: UInt64 = 64,
-    vendor: String = "Google",
-    model: String = "TV",
-    packageName: String = "com.google.android.tv.remote.service",
-    appVersion: String = "5.2.473254133"
+    code: UInt64? = 64,
+    vendor: String? = "Google",
+    model: String? = "TV",
+    packageName: String? = "com.google.android.tv.remote.service",
+    appVersion: String? = "5.2.473254133",
+    includeDeviceInfo: Bool = true,
+    deviceInfoPayload explicitDeviceInfoPayload: Data? = nil
 ) -> Data {
-    var deviceInfo = ProtobufEncoder()
-    deviceInfo.appendString(field: 1, model)
-    deviceInfo.appendString(field: 2, vendor)
-    deviceInfo.appendVarint(field: 3, 1)
-    deviceInfo.appendString(field: 4, "1")
-    deviceInfo.appendString(field: 5, packageName)
-    deviceInfo.appendString(field: 6, appVersion)
-
     var configure = ProtobufEncoder()
-    configure.appendVarint(field: 1, code)
-    configure.appendMessage(field: 2, deviceInfo.data)
+    if let code {
+        configure.appendVarint(field: 1, code)
+    }
+    if let explicitDeviceInfoPayload {
+        configure.appendBytes(field: 2, explicitDeviceInfoPayload)
+    } else if includeDeviceInfo {
+        configure.appendMessage(
+            field: 2,
+            remoteDeviceInfoPayload(vendor: vendor, model: model, packageName: packageName, appVersion: appVersion)
+        )
+    }
 
     var message = ProtobufEncoder()
     message.appendMessage(field: 1, configure.data)
@@ -268,27 +379,32 @@ private func remoteImeShowRequestFrame() -> Data {
 }
 
 private func remoteImeKeyInjectFrame(
-    packageName: String,
-    appLabel: String,
-    counter: Int,
-    value: String,
-    selectionStart: Int,
-    selectionEnd: Int
+    packageName: String?,
+    appLabel: String?,
+    counter: Int?,
+    value: String?,
+    selectionStart: Int?,
+    selectionEnd: Int?
 ) -> Data {
-    var appInfo = ProtobufEncoder()
-    appInfo.appendVarint(field: 1, UInt64(counter))
-    appInfo.appendString(field: 10, appLabel)
-    appInfo.appendString(field: 12, packageName)
+    remoteImeKeyInjectFrame(
+        appInfoPayload: remoteAppInfoPayload(packageName: packageName, appLabel: appLabel, counter: counter),
+        textFieldStatusPayload: remoteTextFieldStatusPayload(
+            counter: counter,
+            value: value,
+            selectionStart: selectionStart,
+            selectionEnd: selectionEnd
+        )
+    )
+}
 
-    var status = ProtobufEncoder()
-    status.appendVarint(field: 1, UInt64(counter))
-    status.appendString(field: 2, value)
-    status.appendVarint(field: 3, UInt64(selectionStart))
-    status.appendVarint(field: 4, UInt64(selectionEnd))
-
+private func remoteImeKeyInjectFrame(appInfoPayload: Data?, textFieldStatusPayload: Data?) -> Data {
     var keyInject = ProtobufEncoder()
-    keyInject.appendMessage(field: 1, appInfo.data)
-    keyInject.appendMessage(field: 2, status.data)
+    if let appInfoPayload {
+        keyInject.appendBytes(field: 1, appInfoPayload)
+    }
+    if let textFieldStatusPayload {
+        keyInject.appendBytes(field: 2, textFieldStatusPayload)
+    }
 
     var message = ProtobufEncoder()
     message.appendMessage(field: 20, keyInject.data)
@@ -296,24 +412,36 @@ private func remoteImeKeyInjectFrame(
 }
 
 private func remoteImeBatchEditFrame(
-    imeCounter: Int = 3,
-    fieldCounter: Int = 9,
+    imeCounter: Int? = 3,
+    fieldCounter: Int? = 9,
     edits: [RemoteEditFixture] = [
         RemoteEditFixture(insert: 1, selectionStart: 2, selectionEnd: 2, value: "hey")
     ]
 ) -> Data {
     var batchEdit = ProtobufEncoder()
-    batchEdit.appendVarint(field: 1, UInt64(imeCounter))
-    batchEdit.appendVarint(field: 2, UInt64(fieldCounter))
+    if let imeCounter {
+        batchEdit.appendVarint(field: 1, UInt64(imeCounter))
+    }
+    if let fieldCounter {
+        batchEdit.appendVarint(field: 2, UInt64(fieldCounter))
+    }
 
     for edit in edits {
         var object = ProtobufEncoder()
-        object.appendVarint(field: 1, UInt64(edit.selectionStart))
-        object.appendVarint(field: 2, UInt64(edit.selectionEnd))
-        object.appendString(field: 3, edit.value)
+        if let selectionStart = edit.selectionStart {
+            object.appendVarint(field: 1, UInt64(selectionStart))
+        }
+        if let selectionEnd = edit.selectionEnd {
+            object.appendVarint(field: 2, UInt64(selectionEnd))
+        }
+        if let value = edit.value {
+            object.appendString(field: 3, value)
+        }
 
         var editInfo = ProtobufEncoder()
-        editInfo.appendVarint(field: 1, UInt64(edit.insert))
+        if let insert = edit.insert {
+            editInfo.appendVarint(field: 1, UInt64(insert))
+        }
         editInfo.appendMessage(field: 2, object.data)
         batchEdit.appendMessage(field: 3, editInfo.data)
     }
@@ -321,6 +449,72 @@ private func remoteImeBatchEditFrame(
     var message = ProtobufEncoder()
     message.appendMessage(field: 21, batchEdit.data)
     return message.data
+}
+
+private func remoteDeviceInfoPayload(
+    vendor: String?,
+    model: String?,
+    packageName: String?,
+    appVersion: String?
+) -> Data {
+    var deviceInfo = ProtobufEncoder()
+    if let model {
+        deviceInfo.appendString(field: 1, model)
+    }
+    if let vendor {
+        deviceInfo.appendString(field: 2, vendor)
+    }
+    if model != nil || vendor != nil || packageName != nil || appVersion != nil {
+        deviceInfo.appendVarint(field: 3, 1)
+        deviceInfo.appendString(field: 4, "1")
+    }
+    if let packageName {
+        deviceInfo.appendString(field: 5, packageName)
+    }
+    if let appVersion {
+        deviceInfo.appendString(field: 6, appVersion)
+    }
+    return deviceInfo.data
+}
+
+private func remoteAppInfoPayload(packageName: String?, appLabel: String?, counter: Int?) -> Data {
+    var appInfo = ProtobufEncoder()
+    if let counter {
+        appInfo.appendVarint(field: 1, UInt64(counter))
+    }
+    if let appLabel {
+        appInfo.appendString(field: 10, appLabel)
+    }
+    if let packageName {
+        appInfo.appendString(field: 12, packageName)
+    }
+    return appInfo.data
+}
+
+private func remoteTextFieldStatusPayload(
+    counter: Int?,
+    value: String?,
+    selectionStart: Int?,
+    selectionEnd: Int?
+) -> Data {
+    var status = ProtobufEncoder()
+    if let counter {
+        status.appendVarint(field: 1, UInt64(counter))
+    }
+    if let value {
+        status.appendString(field: 2, value)
+    }
+    if let selectionStart {
+        status.appendVarint(field: 3, UInt64(selectionStart))
+    }
+    if let selectionEnd {
+        status.appendVarint(field: 4, UInt64(selectionEnd))
+    }
+    return status.data
+}
+
+private func malformedStringFieldPayload() -> Data {
+    Data([0x0A, 0x05, 0x54])
 }
 
 private func remoteVoiceBeginFrame(sessionID: Int) -> Data {

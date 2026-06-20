@@ -194,11 +194,7 @@ public struct RemoteProtocolCode: Equatable, Sendable {
 
     public init(rawValue: UInt64) {
         self.rawValue = rawValue
-        var featureBits = rawValue & RemoteProtocolFeature.knownMask
-        if rawValue == RemoteProtocolNegotiator.defaultClientResponseRawCode {
-            featureBits |= RemoteProtocolFeature.unknown1.rawValue
-        }
-        features = RemoteProtocolFeature(rawValue: featureBits)
+        features = RemoteProtocolFeature(rawValue: rawValue & RemoteProtocolFeature.knownMask)
         unknownBits = rawValue & ~RemoteProtocolFeature.knownMask
     }
 
@@ -212,20 +208,20 @@ public struct RemoteProtocolCode: Equatable, Sendable {
 }
 
 public struct RemoteDeviceInfo: Equatable, Sendable {
-    public var model: String
-    public var vendor: String
-    public var unknown1: Int
-    public var unknown2: String
-    public var packageName: String
-    public var appVersion: String
+    public var model: String?
+    public var vendor: String?
+    public var unknown1: Int?
+    public var unknown2: String?
+    public var packageName: String?
+    public var appVersion: String?
 
     public init(
-        model: String = "",
-        vendor: String = "",
-        unknown1: Int = 0,
-        unknown2: String = "",
-        packageName: String = "",
-        appVersion: String = ""
+        model: String? = nil,
+        vendor: String? = nil,
+        unknown1: Int? = nil,
+        unknown2: String? = nil,
+        packageName: String? = nil,
+        appVersion: String? = nil
     ) {
         self.model = model
         self.vendor = vendor
@@ -279,26 +275,26 @@ public struct RemoteSetActiveRequest: Equatable, Sendable {
 }
 
 public struct RemoteAppInfo: Equatable, Sendable {
-    public var counter: Int
-    public var unknownInt2: Int
-    public var unknownInt3: Int
-    public var unknownString4: String
-    public var unknownInt7: Int
-    public var unknownInt8: Int
-    public var label: String
-    public var appPackage: String
-    public var unknownInt13: Int
+    public var counter: Int?
+    public var unknownInt2: Int?
+    public var unknownInt3: Int?
+    public var unknownString4: String?
+    public var unknownInt7: Int?
+    public var unknownInt8: Int?
+    public var label: String?
+    public var appPackage: String?
+    public var unknownInt13: Int?
 
     public init(
-        counter: Int = 0,
-        unknownInt2: Int = 0,
-        unknownInt3: Int = 0,
-        unknownString4: String = "",
-        unknownInt7: Int = 0,
-        unknownInt8: Int = 0,
-        label: String = "",
-        appPackage: String = "",
-        unknownInt13: Int = 0
+        counter: Int? = nil,
+        unknownInt2: Int? = nil,
+        unknownInt3: Int? = nil,
+        unknownString4: String? = nil,
+        unknownInt7: Int? = nil,
+        unknownInt8: Int? = nil,
+        label: String? = nil,
+        appPackage: String? = nil,
+        unknownInt13: Int? = nil
     ) {
         self.counter = counter
         self.unknownInt2 = unknownInt2
@@ -313,11 +309,11 @@ public struct RemoteAppInfo: Equatable, Sendable {
 }
 
 public struct RemoteImeObjectObservation: Equatable, Sendable {
-    public var value: String
-    public var selectionStart: Int
-    public var selectionEnd: Int
+    public var value: String?
+    public var selectionStart: Int?
+    public var selectionEnd: Int?
 
-    public init(value: String = "", selectionStart: Int = 0, selectionEnd: Int = 0) {
+    public init(value: String? = nil, selectionStart: Int? = nil, selectionEnd: Int? = nil) {
         self.value = value
         self.selectionStart = selectionStart
         self.selectionEnd = selectionEnd
@@ -325,10 +321,10 @@ public struct RemoteImeObjectObservation: Equatable, Sendable {
 }
 
 public struct RemoteEditInfoObservation: Equatable, Sendable {
-    public var editType: Int
+    public var editType: Int?
     public var object: RemoteImeObjectObservation?
 
-    public init(editType: Int = 0, object: RemoteImeObjectObservation? = nil) {
+    public init(editType: Int? = nil, object: RemoteImeObjectObservation? = nil) {
         self.editType = editType
         self.object = object
     }
@@ -345,24 +341,34 @@ public struct RemoteImeKeyInjectObservation: Equatable, Sendable {
 }
 
 public struct RemoteImeBatchEditObservation: Equatable, Sendable {
-    public var imeCounter: Int
-    public var fieldCounter: Int
+    public var imeCounter: Int?
+    public var fieldCounter: Int?
     public var edits: [RemoteEditInfoObservation]
 
-    public init(imeCounter: Int = 1, fieldCounter: Int = 0, edits: [RemoteEditInfoObservation] = []) {
+    public init(imeCounter: Int? = nil, fieldCounter: Int? = nil, edits: [RemoteEditInfoObservation] = []) {
         self.imeCounter = imeCounter
         self.fieldCounter = fieldCounter
         self.edits = edits
     }
 
-    public var derivedTextFieldStatus: RemoteTextFieldStatus {
-        let object = edits.compactMap(\.object).last
+    public var derivedTextFieldStatus: RemoteTextFieldStatus? {
+        guard
+            let imeCounter,
+            let fieldCounter,
+            let object = edits.compactMap(\.object).last,
+            let value = object.value,
+            let selectionStart = object.selectionStart,
+            let selectionEnd = object.selectionEnd
+        else {
+            return nil
+        }
+
         return RemoteTextFieldStatus(
             imeCounter: max(imeCounter, 1),
             counter: fieldCounter,
-            value: object?.value ?? "",
-            selectionStart: object?.selectionStart ?? 0,
-            selectionEnd: object?.selectionEnd ?? 0
+            value: value,
+            selectionStart: selectionStart,
+            selectionEnd: selectionEnd
         )
     }
 }
@@ -604,18 +610,18 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
         let deviceInfoPayload = try optionalFirstLengthDelimited(field: 2, in: payload)
         return RemoteConfigureRequest(
             code: try optionalFirstVarint(field: 1, in: payload).map(RemoteProtocolCode.init(rawValue:)),
-            deviceInfo: try deviceInfoPayload.map(decodeRemoteDeviceInfo)
+            deviceInfo: decodeOptionalNested(deviceInfoPayload, using: decodeRemoteDeviceInfo)
         )
     }
 
     private func decodeRemoteDeviceInfo(_ payload: Data) throws -> RemoteDeviceInfo {
         RemoteDeviceInfo(
-            model: try optionalFirstString(field: 1, in: payload) ?? "",
-            vendor: try optionalFirstString(field: 2, in: payload) ?? "",
-            unknown1: Int(try optionalFirstVarint(field: 3, in: payload) ?? 0),
-            unknown2: try optionalFirstString(field: 4, in: payload) ?? "",
-            packageName: try optionalFirstString(field: 5, in: payload) ?? "",
-            appVersion: try optionalFirstString(field: 6, in: payload) ?? ""
+            model: try optionalFirstString(field: 1, in: payload),
+            vendor: try optionalFirstString(field: 2, in: payload),
+            unknown1: try optionalFirstVarint(field: 3, in: payload).map { Int($0) },
+            unknown2: try optionalFirstString(field: 4, in: payload),
+            packageName: try optionalFirstString(field: 5, in: payload),
+            appVersion: try optionalFirstString(field: 6, in: payload)
         )
     }
 
@@ -627,32 +633,33 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
         let appPayload = try optionalFirstLengthDelimited(field: 1, in: payload)
         let statusPayload = try optionalFirstLengthDelimited(field: 2, in: payload)
         return RemoteImeKeyInjectObservation(
-            appInfo: try appPayload.map(decodeRemoteAppInfo),
-            textFieldStatus: try statusPayload.map(textFieldStatus(from:))
+            appInfo: decodeOptionalNested(appPayload, using: decodeRemoteAppInfo),
+            textFieldStatus: decodeOptionalNested(statusPayload, using: textFieldStatus(from:))
         )
     }
 
     private func decodeRemoteAppInfo(_ payload: Data) throws -> RemoteAppInfo {
         RemoteAppInfo(
-            counter: Int(try optionalFirstVarint(field: 1, in: payload) ?? 0),
-            unknownInt2: Int(try optionalFirstVarint(field: 2, in: payload) ?? 0),
-            unknownInt3: Int(try optionalFirstVarint(field: 3, in: payload) ?? 0),
-            unknownString4: try optionalFirstString(field: 4, in: payload) ?? "",
-            unknownInt7: Int(try optionalFirstVarint(field: 7, in: payload) ?? 0),
-            unknownInt8: Int(try optionalFirstVarint(field: 8, in: payload) ?? 0),
-            label: try optionalFirstString(field: 10, in: payload) ?? "",
-            appPackage: try optionalFirstString(field: 12, in: payload) ?? "",
-            unknownInt13: Int(try optionalFirstVarint(field: 13, in: payload) ?? 0)
+            counter: try optionalFirstVarint(field: 1, in: payload).map { Int($0) },
+            unknownInt2: try optionalFirstVarint(field: 2, in: payload).map { Int($0) },
+            unknownInt3: try optionalFirstVarint(field: 3, in: payload).map { Int($0) },
+            unknownString4: try optionalFirstString(field: 4, in: payload),
+            unknownInt7: try optionalFirstVarint(field: 7, in: payload).map { Int($0) },
+            unknownInt8: try optionalFirstVarint(field: 8, in: payload).map { Int($0) },
+            label: try optionalFirstString(field: 10, in: payload),
+            appPackage: try optionalFirstString(field: 12, in: payload),
+            unknownInt13: try optionalFirstVarint(field: 13, in: payload).map { Int($0) }
         )
     }
 
     private func decodeImeBatchEdit(_ payload: Data) throws -> RemoteImeBatchEditObservation {
-        let imeCounter = Int(try optionalFirstVarint(field: 1, in: payload) ?? 1)
-        let fieldCounter = Int(try optionalFirstVarint(field: 2, in: payload) ?? 0)
+        let imeCounter = try optionalFirstVarint(field: 1, in: payload).map { Int($0) }
+        let fieldCounter = try optionalFirstVarint(field: 2, in: payload).map { Int($0) }
         let edits = try repeatedLengthDelimited(field: 3, in: payload).map { editPayload in
-            RemoteEditInfoObservation(
-                editType: Int(try optionalFirstVarint(field: 1, in: editPayload) ?? 0),
-                object: try optionalFirstLengthDelimited(field: 2, in: editPayload).map(decodeImeObject)
+            let objectPayload = try optionalFirstLengthDelimited(field: 2, in: editPayload)
+            return RemoteEditInfoObservation(
+                editType: try optionalFirstVarint(field: 1, in: editPayload).map { Int($0) },
+                object: decodeOptionalNested(objectPayload, using: decodeImeObject)
             )
         }
         return RemoteImeBatchEditObservation(imeCounter: imeCounter, fieldCounter: fieldCounter, edits: edits)
@@ -660,10 +667,22 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
 
     private func decodeImeObject(_ payload: Data) throws -> RemoteImeObjectObservation {
         RemoteImeObjectObservation(
-            value: try optionalFirstString(field: 3, in: payload) ?? "",
-            selectionStart: Int(try optionalFirstVarint(field: 1, in: payload) ?? 0),
-            selectionEnd: Int(try optionalFirstVarint(field: 2, in: payload) ?? 0)
+            value: try optionalFirstString(field: 3, in: payload),
+            selectionStart: try optionalFirstVarint(field: 1, in: payload).map { Int($0) },
+            selectionEnd: try optionalFirstVarint(field: 2, in: payload).map { Int($0) }
         )
+    }
+
+    private func decodeOptionalNested<Value>(
+        _ payload: Data?,
+        using decoder: (Data) throws -> Value
+    ) -> Value? {
+        guard let payload else { return nil }
+        do {
+            return try decoder(payload)
+        } catch {
+            return nil
+        }
     }
 
     private func optionalFirstVarint(field target: Int, in payload: Data) throws -> UInt64? {
