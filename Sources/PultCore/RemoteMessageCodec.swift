@@ -68,51 +68,6 @@ public enum IncomingRemoteMessage: Equatable, Sendable {
     case imeBatchEdit(RemoteImeBatchEditObservation)
     case voiceBegin(sessionID: Int)
     case other
-
-    @_disfavoredOverload
-    public static var configure: IncomingRemoteMessage {
-        .configure(.compatibilityWildcard)
-    }
-
-    @_disfavoredOverload
-    public static var setActive: IncomingRemoteMessage {
-        .setActive(.compatibilityWildcard)
-    }
-
-    public static func == (lhs: IncomingRemoteMessage, rhs: IncomingRemoteMessage) -> Bool {
-        switch (lhs, rhs) {
-        case let (.configure(lhsRequest), .configure(rhsRequest)):
-            if lhsRequest.isCompatibilityWildcard || rhsRequest.isCompatibilityWildcard {
-                return true
-            }
-            return lhsRequest == rhsRequest
-        case let (.setActive(lhsRequest), .setActive(rhsRequest)):
-            if lhsRequest.isCompatibilityWildcard || rhsRequest.isCompatibilityWildcard {
-                return true
-            }
-            return lhsRequest == rhsRequest
-        case let (.pingRequest(lhsValue), .pingRequest(rhsValue)):
-            return lhsValue == rhsValue
-        case (.error, .error):
-            return true
-        case let (.started(lhsValue), .started(rhsValue)):
-            return lhsValue == rhsValue
-        case let (.volume(lhsLevel, lhsMaximum, lhsMuted), .volume(rhsLevel, rhsMaximum, rhsMuted)):
-            return lhsLevel == rhsLevel && lhsMaximum == rhsMaximum && lhsMuted == rhsMuted
-        case let (.textFieldStatus(lhsStatus), .textFieldStatus(rhsStatus)):
-            return lhsStatus == rhsStatus
-        case let (.imeKeyInject(lhsObservation), .imeKeyInject(rhsObservation)):
-            return lhsObservation == rhsObservation
-        case let (.imeBatchEdit(lhsObservation), .imeBatchEdit(rhsObservation)):
-            return lhsObservation == rhsObservation
-        case let (.voiceBegin(lhsSessionID), .voiceBegin(rhsSessionID)):
-            return lhsSessionID == rhsSessionID
-        case (.other, .other):
-            return true
-        default:
-            return false
-        }
-    }
 }
 
 public protocol RemoteMessageCodec: Sendable {
@@ -235,43 +190,19 @@ public struct RemoteDeviceInfo: Equatable, Sendable {
 public struct RemoteConfigureRequest: Equatable, Sendable {
     public var code: RemoteProtocolCode?
     public var deviceInfo: RemoteDeviceInfo?
-    fileprivate var isCompatibilityWildcard: Bool
 
     public init(code: RemoteProtocolCode? = nil, deviceInfo: RemoteDeviceInfo? = nil) {
-        self.init(code: code, deviceInfo: deviceInfo, isCompatibilityWildcard: false)
-    }
-
-    private init(
-        code: RemoteProtocolCode?,
-        deviceInfo: RemoteDeviceInfo?,
-        isCompatibilityWildcard: Bool
-    ) {
         self.code = code
         self.deviceInfo = deviceInfo
-        self.isCompatibilityWildcard = isCompatibilityWildcard
     }
-
-    fileprivate static let compatibilityWildcard = Self(
-        code: nil,
-        deviceInfo: nil,
-        isCompatibilityWildcard: true
-    )
 }
 
 public struct RemoteSetActiveRequest: Equatable, Sendable {
     public var active: RemoteProtocolCode?
-    fileprivate var isCompatibilityWildcard: Bool
 
     public init(active: RemoteProtocolCode? = nil) {
-        self.init(active: active, isCompatibilityWildcard: false)
-    }
-
-    private init(active: RemoteProtocolCode?, isCompatibilityWildcard: Bool) {
         self.active = active
-        self.isCompatibilityWildcard = isCompatibilityWildcard
     }
-
-    fileprivate static let compatibilityWildcard = Self(active: nil, isCompatibilityWildcard: true)
 }
 
 public struct RemoteAppInfo: Equatable, Sendable {
@@ -610,7 +541,7 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
         let deviceInfoPayload = try optionalFirstLengthDelimited(field: 2, in: payload)
         return RemoteConfigureRequest(
             code: try optionalFirstVarint(field: 1, in: payload).map(RemoteProtocolCode.init(rawValue:)),
-            deviceInfo: decodeOptionalNested(deviceInfoPayload, using: decodeRemoteDeviceInfo)
+            deviceInfo: try decodeOptionalNested(deviceInfoPayload, using: decodeRemoteDeviceInfo)
         )
     }
 
@@ -633,8 +564,8 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
         let appPayload = try optionalFirstLengthDelimited(field: 1, in: payload)
         let statusPayload = try optionalFirstLengthDelimited(field: 2, in: payload)
         return RemoteImeKeyInjectObservation(
-            appInfo: decodeOptionalNested(appPayload, using: decodeRemoteAppInfo),
-            textFieldStatus: decodeOptionalNestedObservation(statusPayload, using: textFieldStatusObservation(from:))
+            appInfo: try decodeOptionalNested(appPayload, using: decodeRemoteAppInfo),
+            textFieldStatus: try decodeOptionalNestedObservation(statusPayload, using: textFieldStatusObservation(from:))
         )
     }
 
@@ -659,7 +590,7 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
             let objectPayload = try optionalFirstLengthDelimited(field: 2, in: editPayload)
             return RemoteEditInfoObservation(
                 editType: try optionalFirstVarint(field: 1, in: editPayload).map { Int($0) },
-                object: decodeOptionalNested(objectPayload, using: decodeImeObject)
+                object: try decodeOptionalNested(objectPayload, using: decodeImeObject)
             )
         }
         return RemoteImeBatchEditObservation(imeCounter: imeCounter, fieldCounter: fieldCounter, edits: edits)
@@ -676,24 +607,28 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
     private func decodeOptionalNested<Value>(
         _ payload: Data?,
         using decoder: (Data) throws -> Value
-    ) -> Value? {
+    ) throws -> Value? {
         guard let payload else { return nil }
         do {
             return try decoder(payload)
-        } catch {
+        } catch is ProtobufCodingError {
             return nil
+        } catch {
+            throw error
         }
     }
 
     private func decodeOptionalNestedObservation<Value>(
         _ payload: Data?,
         using decoder: (Data) throws -> Value?
-    ) -> Value? {
+    ) throws -> Value? {
         guard let payload else { return nil }
         do {
             return try decoder(payload)
-        } catch {
+        } catch is ProtobufCodingError {
             return nil
+        } catch {
+            throw error
         }
     }
 
