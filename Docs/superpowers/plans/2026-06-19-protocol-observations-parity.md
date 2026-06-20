@@ -1117,7 +1117,7 @@ If a `String.nonEmpty` helper already exists, use the existing helper and do not
 Section {
     DiagnosticValueRow(
         "Session TV",
-        value: model.session.device?.name ?? "No active session",
+        value: activeSessionDeviceName,
         systemImage: "tv"
     )
     ForEach(model.session.protocolState.diagnosticLines, id: \.self) { line in
@@ -1175,7 +1175,7 @@ private var diagnosticsText: String {
 
     lines.append("")
     lines.append("Protocol Observations (not validation evidence):")
-    lines.append("- Session TV: \(model.session.device?.name ?? "No active session")")
+    lines.append("- Session TV: \(activeSessionDeviceName)")
     for line in model.session.protocolState.diagnosticLines {
         lines.append("- \(line)")
     }
