@@ -78,7 +78,7 @@ struct DiagnosticsAndValidationView: View {
                 } header: {
                     Text("Protocol Observations")
                 } footer: {
-                    Text("Session-scoped protocol observations from the TV. These are diagnostics, not physical validation evidence.")
+                    Text("Session-scoped protocol observations and client negotiation responses. These are diagnostics, not physical validation evidence.")
                 }
 
                 Section {

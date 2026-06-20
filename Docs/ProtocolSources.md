@@ -10,4 +10,17 @@ Primary implementation references used for the package shape:
 
 Pult implements the Android TV Remote v2 command codec in `Sources/PultCore/RemoteMessageCodec.swift` as `AndroidTVRemoteMessageCodec`, using hand-rolled protobuf wire coding for the subset in the vendored protocol references. Configure and set-active responses currently preserve the observed client feature code `622`; treat it as a feature-bit mask and implementation constant until physical-device evidence proves a different negotiation is safe.
 
+Known feature bits decoded by `RemoteProtocolFeature`:
+
+- `1`: ping
+- `2`: key
+- `4`: IME
+- `8`: voice
+- `16`: unknown/reserved
+- `32`: power command capability, not power state
+- `64`: volume
+- `512`: app link
+
+The default client response `622` is `2 + 4 + 8 + 32 + 64 + 512`.
+
 Generated SwiftProtobuf files, if added later, should keep the upstream license headers from the vendored `.proto` source.
