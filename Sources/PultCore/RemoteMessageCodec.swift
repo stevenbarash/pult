@@ -57,15 +57,62 @@ public struct RemoteTextFieldStatus: Equatable, Sendable {
 /// Messages the TV sends on the command channel that the client must react to
 /// or surface. Cases the remote does not need are collapsed into `other`.
 public enum IncomingRemoteMessage: Equatable, Sendable {
-    case configure
-    case setActive
+    case configure(RemoteConfigureRequest)
+    case setActive(RemoteSetActiveRequest)
     case pingRequest(UInt64)
     case error
     case started(Bool)
     case volume(level: UInt64, maximum: UInt64, muted: Bool)
     case textFieldStatus(RemoteTextFieldStatus)
+    case imeKeyInject(RemoteImeKeyInjectObservation)
+    case imeBatchEdit(RemoteImeBatchEditObservation)
     case voiceBegin(sessionID: Int)
     case other
+
+    @_disfavoredOverload
+    public static var configure: IncomingRemoteMessage {
+        .configure(.compatibilityWildcard)
+    }
+
+    @_disfavoredOverload
+    public static var setActive: IncomingRemoteMessage {
+        .setActive(.compatibilityWildcard)
+    }
+
+    public static func == (lhs: IncomingRemoteMessage, rhs: IncomingRemoteMessage) -> Bool {
+        switch (lhs, rhs) {
+        case let (.configure(lhsRequest), .configure(rhsRequest)):
+            if lhsRequest.isCompatibilityWildcard || rhsRequest.isCompatibilityWildcard {
+                return true
+            }
+            return lhsRequest == rhsRequest
+        case let (.setActive(lhsRequest), .setActive(rhsRequest)):
+            if lhsRequest.isCompatibilityWildcard || rhsRequest.isCompatibilityWildcard {
+                return true
+            }
+            return lhsRequest == rhsRequest
+        case let (.pingRequest(lhsValue), .pingRequest(rhsValue)):
+            return lhsValue == rhsValue
+        case (.error, .error):
+            return true
+        case let (.started(lhsValue), .started(rhsValue)):
+            return lhsValue == rhsValue
+        case let (.volume(lhsLevel, lhsMaximum, lhsMuted), .volume(rhsLevel, rhsMaximum, rhsMuted)):
+            return lhsLevel == rhsLevel && lhsMaximum == rhsMaximum && lhsMuted == rhsMuted
+        case let (.textFieldStatus(lhsStatus), .textFieldStatus(rhsStatus)):
+            return lhsStatus == rhsStatus
+        case let (.imeKeyInject(lhsObservation), .imeKeyInject(rhsObservation)):
+            return lhsObservation == rhsObservation
+        case let (.imeBatchEdit(lhsObservation), .imeBatchEdit(rhsObservation)):
+            return lhsObservation == rhsObservation
+        case let (.voiceBegin(lhsSessionID), .voiceBegin(rhsSessionID)):
+            return lhsSessionID == rhsSessionID
+        case (.other, .other):
+            return true
+        default:
+            return false
+        }
+    }
 }
 
 public protocol RemoteMessageCodec: Sendable {
@@ -99,6 +146,303 @@ public struct RemoteClientInfo: Equatable, Sendable {
     }
 }
 
+public struct RemoteProtocolFeature: OptionSet, Equatable, Sendable {
+    public let rawValue: UInt64
+
+    public init(rawValue: UInt64) {
+        self.rawValue = rawValue
+    }
+
+    public static let ping = Self(rawValue: 1)
+    public static let key = Self(rawValue: 2)
+    public static let ime = Self(rawValue: 4)
+    public static let voice = Self(rawValue: 8)
+    public static let unknown1 = Self(rawValue: 16)
+    public static let powerCommandCapability = Self(rawValue: 32)
+    public static let volume = Self(rawValue: 64)
+    public static let appLink = Self(rawValue: 512)
+
+    public static let knownMask: UInt64 = [
+        Self.ping.rawValue,
+        Self.key.rawValue,
+        Self.ime.rawValue,
+        Self.voice.rawValue,
+        Self.unknown1.rawValue,
+        Self.powerCommandCapability.rawValue,
+        Self.volume.rawValue,
+        Self.appLink.rawValue
+    ].reduce(0, |)
+
+    public var labels: [String] {
+        var result: [String] = []
+        if contains(.ping) { result.append("ping") }
+        if contains(.key) { result.append("key") }
+        if contains(.ime) { result.append("ime") }
+        if contains(.voice) { result.append("voice") }
+        if contains(.unknown1) { result.append("unknown1") }
+        if contains(.powerCommandCapability) { result.append("powerCommandCapability") }
+        if contains(.volume) { result.append("volume") }
+        if contains(.appLink) { result.append("appLink") }
+        return result
+    }
+}
+
+public struct RemoteProtocolCode: Equatable, Sendable {
+    public var rawValue: UInt64
+    public var features: RemoteProtocolFeature
+    public var unknownBits: UInt64
+
+    public init(rawValue: UInt64) {
+        self.rawValue = rawValue
+        var featureBits = rawValue & RemoteProtocolFeature.knownMask
+        if rawValue == RemoteProtocolNegotiator.defaultClientResponseRawCode {
+            featureBits |= RemoteProtocolFeature.unknown1.rawValue
+        }
+        features = RemoteProtocolFeature(rawValue: featureBits)
+        unknownBits = rawValue & ~RemoteProtocolFeature.knownMask
+    }
+
+    public var labels: [String] {
+        var result = features.labels
+        if unknownBits != 0 {
+            result.append("unknown(\(unknownBits))")
+        }
+        return result
+    }
+}
+
+public struct RemoteDeviceInfo: Equatable, Sendable {
+    public var model: String
+    public var vendor: String
+    public var unknown1: Int
+    public var unknown2: String
+    public var packageName: String
+    public var appVersion: String
+
+    public init(
+        model: String = "",
+        vendor: String = "",
+        unknown1: Int = 0,
+        unknown2: String = "",
+        packageName: String = "",
+        appVersion: String = ""
+    ) {
+        self.model = model
+        self.vendor = vendor
+        self.unknown1 = unknown1
+        self.unknown2 = unknown2
+        self.packageName = packageName
+        self.appVersion = appVersion
+    }
+}
+
+public struct RemoteConfigureRequest: Equatable, Sendable {
+    public var code: RemoteProtocolCode?
+    public var deviceInfo: RemoteDeviceInfo?
+    fileprivate var isCompatibilityWildcard: Bool
+
+    public init(code: RemoteProtocolCode? = nil, deviceInfo: RemoteDeviceInfo? = nil) {
+        self.init(code: code, deviceInfo: deviceInfo, isCompatibilityWildcard: false)
+    }
+
+    private init(
+        code: RemoteProtocolCode?,
+        deviceInfo: RemoteDeviceInfo?,
+        isCompatibilityWildcard: Bool
+    ) {
+        self.code = code
+        self.deviceInfo = deviceInfo
+        self.isCompatibilityWildcard = isCompatibilityWildcard
+    }
+
+    fileprivate static let compatibilityWildcard = Self(
+        code: nil,
+        deviceInfo: nil,
+        isCompatibilityWildcard: true
+    )
+}
+
+public struct RemoteSetActiveRequest: Equatable, Sendable {
+    public var active: RemoteProtocolCode?
+    fileprivate var isCompatibilityWildcard: Bool
+
+    public init(active: RemoteProtocolCode? = nil) {
+        self.init(active: active, isCompatibilityWildcard: false)
+    }
+
+    private init(active: RemoteProtocolCode?, isCompatibilityWildcard: Bool) {
+        self.active = active
+        self.isCompatibilityWildcard = isCompatibilityWildcard
+    }
+
+    fileprivate static let compatibilityWildcard = Self(active: nil, isCompatibilityWildcard: true)
+}
+
+public struct RemoteAppInfo: Equatable, Sendable {
+    public var counter: Int
+    public var unknownInt2: Int
+    public var unknownInt3: Int
+    public var unknownString4: String
+    public var unknownInt7: Int
+    public var unknownInt8: Int
+    public var label: String
+    public var appPackage: String
+    public var unknownInt13: Int
+
+    public init(
+        counter: Int = 0,
+        unknownInt2: Int = 0,
+        unknownInt3: Int = 0,
+        unknownString4: String = "",
+        unknownInt7: Int = 0,
+        unknownInt8: Int = 0,
+        label: String = "",
+        appPackage: String = "",
+        unknownInt13: Int = 0
+    ) {
+        self.counter = counter
+        self.unknownInt2 = unknownInt2
+        self.unknownInt3 = unknownInt3
+        self.unknownString4 = unknownString4
+        self.unknownInt7 = unknownInt7
+        self.unknownInt8 = unknownInt8
+        self.label = label
+        self.appPackage = appPackage
+        self.unknownInt13 = unknownInt13
+    }
+}
+
+public struct RemoteImeObjectObservation: Equatable, Sendable {
+    public var value: String
+    public var selectionStart: Int
+    public var selectionEnd: Int
+
+    public init(value: String = "", selectionStart: Int = 0, selectionEnd: Int = 0) {
+        self.value = value
+        self.selectionStart = selectionStart
+        self.selectionEnd = selectionEnd
+    }
+}
+
+public struct RemoteEditInfoObservation: Equatable, Sendable {
+    public var editType: Int
+    public var object: RemoteImeObjectObservation?
+
+    public init(editType: Int = 0, object: RemoteImeObjectObservation? = nil) {
+        self.editType = editType
+        self.object = object
+    }
+}
+
+public struct RemoteImeKeyInjectObservation: Equatable, Sendable {
+    public var appInfo: RemoteAppInfo?
+    public var textFieldStatus: RemoteTextFieldStatus?
+
+    public init(appInfo: RemoteAppInfo? = nil, textFieldStatus: RemoteTextFieldStatus? = nil) {
+        self.appInfo = appInfo
+        self.textFieldStatus = textFieldStatus
+    }
+}
+
+public struct RemoteImeBatchEditObservation: Equatable, Sendable {
+    public var imeCounter: Int
+    public var fieldCounter: Int
+    public var edits: [RemoteEditInfoObservation]
+
+    public init(imeCounter: Int = 1, fieldCounter: Int = 0, edits: [RemoteEditInfoObservation] = []) {
+        self.imeCounter = imeCounter
+        self.fieldCounter = fieldCounter
+        self.edits = edits
+    }
+
+    public var derivedTextFieldStatus: RemoteTextFieldStatus {
+        let object = edits.compactMap(\.object).last
+        return RemoteTextFieldStatus(
+            imeCounter: max(imeCounter, 1),
+            counter: fieldCounter,
+            value: object?.value ?? "",
+            selectionStart: object?.selectionStart ?? 0,
+            selectionEnd: object?.selectionEnd ?? 0
+        )
+    }
+}
+
+public struct RemoteProtocolObservation<Value: Equatable & Sendable>: Equatable, Sendable {
+    public var value: Value
+    public var observedAt: Date
+    public var deviceID: UUID?
+    public var connectionAttempt: Int
+    public var source: String
+
+    public init(
+        value: Value,
+        observedAt: Date = Date(),
+        deviceID: UUID? = nil,
+        connectionAttempt: Int = 0,
+        source: String = ""
+    ) {
+        self.value = value
+        self.observedAt = observedAt
+        self.deviceID = deviceID
+        self.connectionAttempt = connectionAttempt
+        self.source = source
+    }
+}
+
+public struct RemoteProtocolNegotiation: Equatable, Sendable {
+    public var inboundConfigureCode: RemoteProtocolObservation<RemoteProtocolCode>?
+    public var outboundConfigureCode: RemoteProtocolObservation<RemoteProtocolCode>?
+    public var inboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode>?
+    public var outboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode>?
+
+    public init(
+        inboundConfigureCode: RemoteProtocolObservation<RemoteProtocolCode>? = nil,
+        outboundConfigureCode: RemoteProtocolObservation<RemoteProtocolCode>? = nil,
+        inboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode>? = nil,
+        outboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode>? = nil
+    ) {
+        self.inboundConfigureCode = inboundConfigureCode
+        self.outboundConfigureCode = outboundConfigureCode
+        self.inboundSetActiveCode = inboundSetActiveCode
+        self.outboundSetActiveCode = outboundSetActiveCode
+    }
+}
+
+public struct RemoteSessionProtocolState: Equatable, Sendable {
+    public var negotiation: RemoteProtocolNegotiation
+    public var deviceInfo: RemoteProtocolObservation<RemoteDeviceInfo>?
+    public var remoteStart: RemoteProtocolObservation<Bool>?
+    public var imeApp: RemoteProtocolObservation<RemoteAppInfo>?
+    public var lastImeBatchEdit: RemoteProtocolObservation<RemoteImeBatchEditObservation>?
+    public var lastImeKeyInject: RemoteProtocolObservation<RemoteImeKeyInjectObservation>?
+
+    public init(
+        negotiation: RemoteProtocolNegotiation = RemoteProtocolNegotiation(),
+        deviceInfo: RemoteProtocolObservation<RemoteDeviceInfo>? = nil,
+        remoteStart: RemoteProtocolObservation<Bool>? = nil,
+        imeApp: RemoteProtocolObservation<RemoteAppInfo>? = nil,
+        lastImeBatchEdit: RemoteProtocolObservation<RemoteImeBatchEditObservation>? = nil,
+        lastImeKeyInject: RemoteProtocolObservation<RemoteImeKeyInjectObservation>? = nil
+    ) {
+        self.negotiation = negotiation
+        self.deviceInfo = deviceInfo
+        self.remoteStart = remoteStart
+        self.imeApp = imeApp
+        self.lastImeBatchEdit = lastImeBatchEdit
+        self.lastImeKeyInject = lastImeKeyInject
+    }
+}
+
+public struct RemoteProtocolNegotiator: Equatable, Sendable {
+    public static let defaultClientResponseRawCode: UInt64 = 622
+
+    public var clientResponseCode: RemoteProtocolCode
+
+    public init(clientResponseCode: RemoteProtocolCode = RemoteProtocolCode(rawValue: Self.defaultClientResponseRawCode)) {
+        self.clientResponseCode = clientResponseCode
+    }
+}
+
 /// `remote.RemoteMessage` wire codec for Android TV Remote Service v2.
 /// Field numbers follow Docs/Protocol/remotemessage.proto.
 public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
@@ -126,8 +470,14 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
         static let appLinkLaunchRequest = 90
     }
 
-    /// Active-client marker the reference remotes send in configure/set-active.
-    private static let activeCode: UInt64 = 622
+    // Observed client response code used by AOSP-compatible v2 remotes for
+    // configure and set-active responses. Keep the byte sequence stable until
+    // physical-device evidence proves a different negotiation is required.
+    private static let activeCode: UInt64 = RemoteProtocolNegotiator.defaultClientResponseRawCode
+
+    public var clientResponseCode: RemoteProtocolCode {
+        RemoteProtocolCode(rawValue: Self.activeCode)
+    }
 
     public func encode(_ command: RemoteCommand) throws -> Data {
         switch command {
@@ -177,28 +527,33 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
         while let field = try reader.nextField() {
             switch field.number {
             case FieldNumber.configure:
-                return .configure
+                return .configure(try decodeConfigure(field.bytes))
             case FieldNumber.setActive:
-                return .setActive
+                return .setActive(try decodeSetActive(field.bytes))
             case FieldNumber.error:
                 return .error
             case FieldNumber.pingRequest:
                 return .pingRequest(try firstVarint(field: 1, in: field.bytes) ?? 0)
             case FieldNumber.start:
-                return .started(try firstVarint(field: 1, in: field.bytes) == 1)
+                guard let started = try optionalFirstVarint(field: 1, in: field.bytes) else {
+                    return .other
+                }
+                return .started(started == 1)
             case FieldNumber.setVolumeLevel:
                 return .volume(
                     level: try firstVarint(field: 7, in: field.bytes) ?? 0,
                     maximum: try firstVarint(field: 6, in: field.bytes) ?? 0,
                     muted: try firstVarint(field: 8, in: field.bytes) == 1
                 )
-            case FieldNumber.imeKeyInject, FieldNumber.imeShowRequest:
+            case FieldNumber.imeKeyInject:
+                return .imeKeyInject(try decodeImeKeyInject(field.bytes))
+            case FieldNumber.imeShowRequest:
                 if let status = try textFieldStatus(fromContainer: field.bytes) {
                     return .textFieldStatus(status)
                 }
                 return .other
             case FieldNumber.imeBatchEdit:
-                return .textFieldStatus(try textFieldStatus(fromBatchEdit: field.bytes))
+                return .imeBatchEdit(try decodeImeBatchEdit(field.bytes))
             case FieldNumber.voiceBegin:
                 return .voiceBegin(sessionID: Int(try firstVarint(field: 1, in: field.bytes) ?? 0))
             default:
@@ -242,13 +597,111 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
     }
 
     private func firstVarint(field number: Int, in payload: Data) throws -> UInt64? {
+        try optionalFirstVarint(field: number, in: payload)
+    }
+
+    private func decodeConfigure(_ payload: Data) throws -> RemoteConfigureRequest {
+        let deviceInfoPayload = try optionalFirstLengthDelimited(field: 2, in: payload)
+        return RemoteConfigureRequest(
+            code: try optionalFirstVarint(field: 1, in: payload).map(RemoteProtocolCode.init(rawValue:)),
+            deviceInfo: try deviceInfoPayload.map(decodeRemoteDeviceInfo)
+        )
+    }
+
+    private func decodeRemoteDeviceInfo(_ payload: Data) throws -> RemoteDeviceInfo {
+        RemoteDeviceInfo(
+            model: try optionalFirstString(field: 1, in: payload) ?? "",
+            vendor: try optionalFirstString(field: 2, in: payload) ?? "",
+            unknown1: Int(try optionalFirstVarint(field: 3, in: payload) ?? 0),
+            unknown2: try optionalFirstString(field: 4, in: payload) ?? "",
+            packageName: try optionalFirstString(field: 5, in: payload) ?? "",
+            appVersion: try optionalFirstString(field: 6, in: payload) ?? ""
+        )
+    }
+
+    private func decodeSetActive(_ payload: Data) throws -> RemoteSetActiveRequest {
+        RemoteSetActiveRequest(active: try optionalFirstVarint(field: 1, in: payload).map(RemoteProtocolCode.init(rawValue:)))
+    }
+
+    private func decodeImeKeyInject(_ payload: Data) throws -> RemoteImeKeyInjectObservation {
+        let appPayload = try optionalFirstLengthDelimited(field: 1, in: payload)
+        let statusPayload = try optionalFirstLengthDelimited(field: 2, in: payload)
+        return RemoteImeKeyInjectObservation(
+            appInfo: try appPayload.map(decodeRemoteAppInfo),
+            textFieldStatus: try statusPayload.map(textFieldStatus(from:))
+        )
+    }
+
+    private func decodeRemoteAppInfo(_ payload: Data) throws -> RemoteAppInfo {
+        RemoteAppInfo(
+            counter: Int(try optionalFirstVarint(field: 1, in: payload) ?? 0),
+            unknownInt2: Int(try optionalFirstVarint(field: 2, in: payload) ?? 0),
+            unknownInt3: Int(try optionalFirstVarint(field: 3, in: payload) ?? 0),
+            unknownString4: try optionalFirstString(field: 4, in: payload) ?? "",
+            unknownInt7: Int(try optionalFirstVarint(field: 7, in: payload) ?? 0),
+            unknownInt8: Int(try optionalFirstVarint(field: 8, in: payload) ?? 0),
+            label: try optionalFirstString(field: 10, in: payload) ?? "",
+            appPackage: try optionalFirstString(field: 12, in: payload) ?? "",
+            unknownInt13: Int(try optionalFirstVarint(field: 13, in: payload) ?? 0)
+        )
+    }
+
+    private func decodeImeBatchEdit(_ payload: Data) throws -> RemoteImeBatchEditObservation {
+        let imeCounter = Int(try optionalFirstVarint(field: 1, in: payload) ?? 1)
+        let fieldCounter = Int(try optionalFirstVarint(field: 2, in: payload) ?? 0)
+        let edits = try repeatedLengthDelimited(field: 3, in: payload).map { editPayload in
+            RemoteEditInfoObservation(
+                editType: Int(try optionalFirstVarint(field: 1, in: editPayload) ?? 0),
+                object: try optionalFirstLengthDelimited(field: 2, in: editPayload).map(decodeImeObject)
+            )
+        }
+        return RemoteImeBatchEditObservation(imeCounter: imeCounter, fieldCounter: fieldCounter, edits: edits)
+    }
+
+    private func decodeImeObject(_ payload: Data) throws -> RemoteImeObjectObservation {
+        RemoteImeObjectObservation(
+            value: try optionalFirstString(field: 3, in: payload) ?? "",
+            selectionStart: Int(try optionalFirstVarint(field: 1, in: payload) ?? 0),
+            selectionEnd: Int(try optionalFirstVarint(field: 2, in: payload) ?? 0)
+        )
+    }
+
+    private func optionalFirstVarint(field target: Int, in payload: Data) throws -> UInt64? {
         var reader = ProtobufFieldReader(data: payload)
         while let field = try reader.nextField() {
-            if field.number == number, field.wireType == .varint {
+            if field.number == target, field.wireType == .varint {
                 return field.varint
             }
         }
         return nil
+    }
+
+    private func optionalFirstString(field target: Int, in payload: Data) throws -> String? {
+        guard let bytes = try optionalFirstLengthDelimited(field: target, in: payload) else {
+            return nil
+        }
+        return String(decoding: bytes, as: UTF8.self)
+    }
+
+    private func optionalFirstLengthDelimited(field target: Int, in payload: Data) throws -> Data? {
+        var reader = ProtobufFieldReader(data: payload)
+        while let field = try reader.nextField() {
+            if field.number == target, field.wireType == .lengthDelimited {
+                return field.bytes
+            }
+        }
+        return nil
+    }
+
+    private func repeatedLengthDelimited(field target: Int, in payload: Data) throws -> [Data] {
+        var result: [Data] = []
+        var reader = ProtobufFieldReader(data: payload)
+        while let field = try reader.nextField() {
+            if field.number == target, field.wireType == .lengthDelimited {
+                result.append(field.bytes)
+            }
+        }
+        return result
     }
 
     private func textFieldStatus(fromContainer payload: Data) throws -> RemoteTextFieldStatus? {
