@@ -261,6 +261,22 @@ func missingObservationScalarsRemainAbsent() throws {
 }
 
 @Test
+func imeKeyInjectEmptyStatusIsUnobserved() throws {
+    switch try codec.decode(remoteImeKeyInjectFrame(
+        appInfoPayload: remoteAppInfoPayload(packageName: "com.netflix.ninja", appLabel: "Netflix", counter: 42),
+        textFieldStatusPayload: remoteTextFieldStatusPayload(counter: nil, value: nil, selectionStart: nil, selectionEnd: nil)
+    )) {
+    case let .imeKeyInject(observation):
+        #expect(observation.appInfo?.appPackage == "com.netflix.ninja")
+        #expect(observation.appInfo?.label == "Netflix")
+        #expect(observation.appInfo?.counter == 42)
+        #expect(observation.textFieldStatus == nil)
+    default:
+        Issue.record("expected IME key-inject observation")
+    }
+}
+
+@Test
 func malformedOptionalNestedObservationsPreserveSiblingFields() throws {
     switch try codec.decode(remoteConfigureFrame(code: 64, deviceInfoPayload: malformedStringFieldPayload())) {
     case let .configure(request):

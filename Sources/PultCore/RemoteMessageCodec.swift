@@ -634,7 +634,7 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
         let statusPayload = try optionalFirstLengthDelimited(field: 2, in: payload)
         return RemoteImeKeyInjectObservation(
             appInfo: decodeOptionalNested(appPayload, using: decodeRemoteAppInfo),
-            textFieldStatus: decodeOptionalNested(statusPayload, using: textFieldStatus(from:))
+            textFieldStatus: decodeOptionalNestedObservation(statusPayload, using: textFieldStatusObservation(from:))
         )
     }
 
@@ -683,6 +683,66 @@ public struct AndroidTVRemoteMessageCodec: RemoteMessageCodec {
         } catch {
             return nil
         }
+    }
+
+    private func decodeOptionalNestedObservation<Value>(
+        _ payload: Data?,
+        using decoder: (Data) throws -> Value?
+    ) -> Value? {
+        guard let payload else { return nil }
+        do {
+            return try decoder(payload)
+        } catch {
+            return nil
+        }
+    }
+
+    private func textFieldStatusObservation(from payload: Data) throws -> RemoteTextFieldStatus? {
+        var counter: Int?
+        var value: String?
+        var selectionStart: Int?
+        var selectionEnd: Int?
+        var unknown5 = 0
+        var label = ""
+
+        var reader = ProtobufFieldReader(data: payload)
+        while let field = try reader.nextField() {
+            switch field.number {
+            case 1 where field.wireType == .varint:
+                counter = Int(field.varint)
+            case 2 where field.wireType == .lengthDelimited:
+                value = String(decoding: field.bytes, as: UTF8.self)
+            case 3 where field.wireType == .varint:
+                selectionStart = Int(field.varint)
+            case 4 where field.wireType == .varint:
+                selectionEnd = Int(field.varint)
+            case 5 where field.wireType == .varint:
+                unknown5 = Int(field.varint)
+            case 6 where field.wireType == .lengthDelimited:
+                label = String(decoding: field.bytes, as: UTF8.self)
+            default:
+                continue
+            }
+        }
+
+        guard
+            let counter,
+            let value,
+            let selectionStart,
+            let selectionEnd
+        else {
+            return nil
+        }
+
+        return RemoteTextFieldStatus(
+            imeCounter: 1,
+            counter: counter,
+            value: value,
+            selectionStart: selectionStart,
+            selectionEnd: selectionEnd,
+            unknown5: unknown5,
+            label: label
+        )
     }
 
     private func optionalFirstVarint(field target: Int, in payload: Data) throws -> UInt64? {
