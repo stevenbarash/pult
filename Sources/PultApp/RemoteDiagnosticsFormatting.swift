@@ -148,13 +148,22 @@ extension RemoteSessionProtocolState {
         [
             "Configure from TV: \(negotiation.inboundConfigureCode?.value.diagnosticText ?? "Not observed this session")",
             "Configure response: \(negotiation.outboundConfigureCode?.value.diagnosticText ?? "Not sent this session")",
-            "Set-active from TV: \(negotiation.inboundSetActiveCode?.value.diagnosticText ?? "Not observed this session")",
+            "Set-active from TV: \(negotiation.inboundSetActiveDiagnosticText)",
             "Set-active response: \(negotiation.outboundSetActiveCode?.value.diagnosticText ?? "Not sent this session")",
             "Device info: \(deviceInfo?.value.diagnosticText ?? "Not observed this session")",
             "Remote start: \(remoteStart.map { "started=\($0.value)" } ?? "Not observed this session")",
             "IME app observation: \(imeApp?.value.diagnosticText ?? "Not observed this session")",
             "Last IME batch: \(lastImeBatchEdit?.value.diagnosticText ?? "Not observed this session")"
         ]
+    }
+}
+
+private extension RemoteProtocolNegotiation {
+    var inboundSetActiveDiagnosticText: String {
+        guard let observation = inboundSetActiveCode else {
+            return "Not observed this session"
+        }
+        return observation.value?.diagnosticText ?? "Observed without active field"
     }
 }
 

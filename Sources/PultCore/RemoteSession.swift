@@ -404,13 +404,11 @@ public final class RemoteSession {
             connectionState = .connected
         case let .setActive(request):
             guard attempt == connectAttempt else { return }
-            if let active = request.active {
-                protocolState.negotiation.inboundSetActiveCode = observe(
-                    active,
-                    source: "remote_set_active.active",
-                    attempt: attempt
-                )
-            }
+            protocolState.negotiation.inboundSetActiveCode = observe(
+                request.active,
+                source: request.active == nil ? "remote_set_active" : "remote_set_active.active",
+                attempt: attempt
+            )
             try await send(codec.encodeSetActiveResponse())
             guard attempt == connectAttempt else { return }
             protocolState.negotiation.outboundSetActiveCode = observe(

@@ -65,7 +65,7 @@ struct DiagnosticsAndValidationView: View {
                 Section {
                     DiagnosticValueRow(
                         "Session TV",
-                        value: model.session.device?.name ?? "No active session",
+                        value: activeSessionDeviceName,
                         systemImage: "tv.and.mediabox"
                     )
                     ForEach(model.session.protocolState.diagnosticLines, id: \.self) { line in
@@ -291,9 +291,18 @@ struct DiagnosticsAndValidationView: View {
         ]
         lines.append("")
         lines.append("Protocol Observations (not validation evidence):")
-        lines.append("- Session TV: \(model.session.device?.name ?? "No active session")")
+        lines.append("- Session TV: \(activeSessionDeviceName)")
         lines.append(contentsOf: model.session.protocolState.diagnosticLines.map { "- \($0)" })
         return lines.joined(separator: "\n")
+    }
+
+    private var activeSessionDeviceName: String {
+        switch model.session.connectionState {
+        case .connecting, .connected:
+            return model.session.device?.name ?? "No active session"
+        case .disconnected, .failed:
+            return "No active session"
+        }
     }
 
     private var validationReportText: String {

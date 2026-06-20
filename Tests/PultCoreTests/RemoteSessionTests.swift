@@ -70,12 +70,35 @@ func sessionStoresProtocolConfigureSetActiveAndStartObservations() async {
         try? await Task.sleep(for: .milliseconds(1))
     }
 
-    #expect(session.protocolState.negotiation.inboundSetActiveCode?.value.rawValue == 622)
+    #expect(session.protocolState.negotiation.inboundSetActiveCode?.value?.rawValue == 622)
     #expect(session.protocolState.negotiation.inboundSetActiveCode?.source == "remote_set_active.active")
     #expect(session.protocolState.negotiation.outboundSetActiveCode?.value.rawValue == 622)
     #expect(session.protocolState.negotiation.outboundSetActiveCode?.source == "client.remote_set_active.active")
     #expect(session.protocolState.remoteStart?.value == true)
     #expect(session.protocolState.remoteStart?.source == "remote_start.started")
+}
+
+@MainActor
+@Test
+func sessionStoresEmptySetActiveRequestObservation() async {
+    let transport = MockTransport()
+    let session = RemoteSession(transport: transport)
+    await transport.enqueueIncoming(framer.frame(remoteConfigureFrame(code: 64)))
+
+    await session.connect(to: DeviceRecord(name: "TV", host: "192.168.1.10"))
+    _ = await transport.waitForSent(count: 1)
+
+    await transport.enqueueIncoming(framer.frame(remoteSetActiveFrame(active: nil)))
+    let sent = await transport.waitForSent(count: 2)
+    for _ in 0..<2000 where session.protocolState.negotiation.inboundSetActiveCode == nil {
+        try? await Task.sleep(for: .milliseconds(1))
+    }
+
+    #expect(session.protocolState.negotiation.inboundSetActiveCode != nil)
+    #expect(session.protocolState.negotiation.inboundSetActiveCode?.value == nil)
+    #expect(session.protocolState.negotiation.inboundSetActiveCode?.source == "remote_set_active")
+    #expect(session.protocolState.negotiation.outboundSetActiveCode?.value.rawValue == 622)
+    #expect(sent.count >= 2 && sent[1] == framer.frame(codec.encodeSetActiveResponse()))
 }
 
 @MainActor

@@ -329,13 +329,13 @@ public struct RemoteProtocolObservation<Value: Equatable & Sendable>: Equatable,
 public struct RemoteProtocolNegotiation: Equatable, Sendable {
     public var inboundConfigureCode: RemoteProtocolObservation<RemoteProtocolCode>?
     public var outboundConfigureCode: RemoteProtocolObservation<RemoteProtocolCode>?
-    public var inboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode>?
+    public var inboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode?>?
     public var outboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode>?
 
     public init(
         inboundConfigureCode: RemoteProtocolObservation<RemoteProtocolCode>? = nil,
         outboundConfigureCode: RemoteProtocolObservation<RemoteProtocolCode>? = nil,
-        inboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode>? = nil,
+        inboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode?>? = nil,
         outboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode>? = nil
     ) {
         self.inboundConfigureCode = inboundConfigureCode

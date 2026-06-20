@@ -712,7 +712,7 @@ expect(
 await protocolStateTransport.enqueueIncoming(framer.frame(remoteSetActiveFrame(active: 64)))
 protocolStateSent = await protocolStateTransport.waitForSent(count: 2)
 expect(
-    protocolStateSession.protocolState.negotiation.inboundSetActiveCode?.value.rawValue == 64,
+    protocolStateSession.protocolState.negotiation.inboundSetActiveCode?.value?.rawValue == 64,
     "session protocol state should store inbound set-active code"
 )
 expect(
@@ -722,6 +722,20 @@ expect(
 expect(
     protocolStateSent.count >= 2 && protocolStateSent[1] == framer.frame(remoteCodec.encodeSetActiveResponse()),
     "session protocol state set-active response bytes failed"
+)
+await protocolStateTransport.enqueueIncoming(framer.frame(remoteSetActiveFrame(active: nil)))
+protocolStateSent = await protocolStateTransport.waitForSent(count: 3)
+expect(
+    protocolStateSession.protocolState.negotiation.inboundSetActiveCode != nil,
+    "session protocol state should record empty inbound set-active"
+)
+expect(
+    protocolStateSession.protocolState.negotiation.inboundSetActiveCode?.value == nil,
+    "session protocol state should preserve empty inbound set-active active field"
+)
+expect(
+    protocolStateSent.count >= 3 && protocolStateSent[2] == framer.frame(remoteCodec.encodeSetActiveResponse()),
+    "session protocol state empty set-active response bytes failed"
 )
 
 await sessionTransport.enqueueIncoming(framer.frame(Data([0x92, 0x03, 0x06, 0x30, 0x64, 0x38, 0x19, 0x40, 0x01])))
