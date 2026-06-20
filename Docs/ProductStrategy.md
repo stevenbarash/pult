@@ -15,7 +15,7 @@
 - **Ambition:** Craft / pride / portfolio. The bar is *"the remote Steven actually wants to use,"* not downloads or revenue. Scale & money are secondary.
 - **Implication of that ambition:** optimize for **depth on the differentiator, not breadth of surface area.** No TAM/SAM/SOM, no monetization funnel, no growth loops, no reach-for-reach's-sake.
 - **Release posture:** TestFlight-first, solo builder. Spec → plan → build rhythm per sub-project.
-- **Platform ceilings (don't fight these):** Android TV Remote **v2** protocol exposes commands + volume only — no now-playing/title/art, no app name, no power-state light. iOS Live Activities support discrete buttons/toggles only — no gestures, drag, or press-and-hold.
+- **Platform ceilings (don't fight these):** Android TV Remote **v2** exposes commands, volume, handshake feature codes, IME app observations, and `remote_start.started` when the TV publishes them. Those observations are diagnostics, not validated foreground-app, power-state, or now-playing truth. iOS Live Activities support discrete buttons/toggles only — no gestures, drag, or press-and-hold.
 
 ## Target Customer
 
@@ -27,7 +27,7 @@
 
 - **Problem:** iPhone owners with Android TVs have **no instant, trustworthy, always-present remote.** Apple gives its own users a built-in Control Center remote for Apple TV; Android TV users get nothing equivalent. Google's app makes you open it and wait; third-party apps are ad-ridden and clunky. So people fall back to the physical remote — or suffer.
 - **The real competitor is friction, not any one app.** Users named all of them (physical remote, "nothing/suffer," Google's apps, third-party apps) — which means the named apps are *why they don't already have a good phone remote.* **The bar to beat is "faster and easier than standing up."** A remote that lags loses to the couch every time.
-- **Why now:** iOS Live Activities, lock-screen presence, and the Action Button make a *no-app-open* remote possible for the first time; the v2 protocol exposes just enough (commands + volume) to do it well.
+- **Why now:** iOS Live Activities, lock-screen presence, and the Action Button make a *no-app-open* remote possible for the first time; the v2 protocol exposes enough command, volume, and diagnostic observation surface to do it well.
 
 ## Core Insight — the Trust Triad
 
@@ -51,7 +51,7 @@
 - **NEXT — There.** Static lock-screen widget (one-tap "start remote"), Action Button to summon/fire a command, and rock-solid Live Activity presence/persistence. *(The "TV wants text" affordance and seamless auto-reconnect can ride here as trust polish.)*
 - **LATER — Premium.** Live volume bar (#2 — cheap, already parsed into `RemoteSession.volumeStatus`), then layout & motion polish (#3, designed around the volume bar).
 - **CUT / PARKED (reach-for-adoption, not craft-core).** Apple Watch app + complication, expanded Siri/Shortcuts breadth, per-TV layout, StandBy bedside mode, adaptive auto-layout. Revisit *only* if the goal shifts from craft to reach/business.
-- **DON'T CHASE (platform-bounded).** Hold-to-repeat / swipe touchpad (Live Activities = discrete buttons only); now-playing card / app name / power light (absent from v2 protocol).
+- **DON'T CHASE (platform-bounded).** Hold-to-repeat / swipe touchpad (Live Activities = discrete buttons only); product promises around now-playing, app name, or power-state truth. IME app observations and `remote_start.started` are useful diagnostics, not authoritative TV state.
 
 ## Success Metrics — triangulate all three
 

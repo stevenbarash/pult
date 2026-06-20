@@ -81,7 +81,7 @@ The four candidate mechanisms — **warm window** (background-task grace re-arme
 ## 6. The ceiling — what you can't measure or fix (so you don't chase it)
 
 - **No persistent socket while suspended.** The best achievable is: instant during active-use bursts (warm window), fast recovery otherwise, instant-*feeling* always (optimistic). A socket that lives forever on the lock screen is not on the menu.
-- **v2 live-state ceiling.** The Android TV Remote v2 protocol pushes only **volume (level/max/mute), connection liveness, and text-field focus.** There is **no** now-playing title/art/scrubber, **no** current-app, **no** power/standby — those need Cast/MediaSession, a transport Pult doesn't speak. Don't design a now-playing card.
+- **v2 protocol-observation ceiling.** The Android TV Remote v2 session can publish **volume (level/max/mute), connection liveness, text-field focus, handshake feature codes, device info, IME app observations, and `remote_start.started` when the TV sends them.** Treat these as session-scoped diagnostics. They are not now-playing title/art/scrubber metadata, a stable foreground-app feed, or authoritative power/standby state. Don't design a now-playing card on this connection.
 - **Live Activities are buttons/toggles only.** No swipe touchpad, drag, or press-and-hold on the lock screen. Richer interaction has to come from elsewhere.
 
 ## 7. Where the code is

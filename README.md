@@ -14,7 +14,7 @@ Pult is a native SwiftUI Google TV remote for iOS 27 and later, with App Intents
 - SwiftUI Liquid Glass remote surface with two navigation modes (swipe touchpad and ring d-pad), media controls, hold-to-repeat volume controls, device status, segmented-code pairing flow, and connection error detail.
 - Saved-TV management sheet with native list editing, swipe-to-delete, and reorder support.
 - Favorite app launcher with editable app-link shortcuts for common streaming apps and custom URLs.
-- Diagnostics sheet with selected-TV/session/discovery details, protocol timestamps, volume/text-field status, copyable output, a guided validation runner, per-TV validation reports, and a persisted physical-device checklist. A stored validation report or explicit user/device evidence is the source for wording such as "validated on physical Google TV as of <date>" for the areas that passed.
+- Diagnostics sheet with selected-TV/session/discovery details, protocol timestamps, volume/text-field status, session-scoped protocol observations, copyable output, a guided validation runner, per-TV validation reports, and a persisted physical-device checklist. Protocol observations are diagnostics, not validation evidence; a stored validation report or explicit user/device evidence is the source for wording such as "validated on physical Google TV as of <date>" for the areas that passed.
 - Reconnect-hardened command sending for app UI, favorite app links, and headless intents: stale sessions are refreshed before sending, and dead sends redial once before failing.
 - Lock-screen Live Activity mini-remote with interactive App Intent buttons (d-pad, media, volume, power) designed to work without unlocking; locked/headless behavior is validated for `Android.local` as of 2026-06-11 and remains per-TV evidence for other devices.
 - Control Center / Lock Screen / Action button controls: a "TV Remote" summon control, a configurable single-command control, and an open-app control.
@@ -50,7 +50,9 @@ app target links the PostHog iOS SDK and reads `PultPostHogProjectToken` from
 import compile-gated. Diagnostics command timing is off by default; when the
 Diagnostics toggle is enabled, timing samples write locally and emit
 privacy-safe `command_timing_recorded` events to PostHog. See
-`Docs/Observability.md`.
+`Docs/Observability.md`. Protocol observation values such as IME app package
+names and device-info strings stay local to Diagnostics and are not sent to
+PostHog.
 
 ## Build
 

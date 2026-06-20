@@ -63,6 +63,25 @@ struct DiagnosticsAndValidationView: View {
                 }
 
                 Section {
+                    DiagnosticValueRow(
+                        "Session TV",
+                        value: model.session.device?.name ?? "No active session",
+                        systemImage: "tv.and.mediabox"
+                    )
+                    ForEach(model.session.protocolState.diagnosticLines, id: \.self) { line in
+                        DiagnosticValueRow(
+                            lineTitle(line),
+                            value: lineValue(line),
+                            systemImage: "waveform.path.ecg"
+                        )
+                    }
+                } header: {
+                    Text("Protocol Observations")
+                } footer: {
+                    Text("Session-scoped protocol observations from the TV. These are diagnostics, not physical validation evidence.")
+                }
+
+                Section {
                     Toggle("Record Command Timing", isOn: $isMeasuringTimings)
                         .onChange(of: isMeasuringTimings) { _, enabled in
                             CommandTimingRecorder.setEnabled(enabled)
@@ -247,7 +266,7 @@ struct DiagnosticsAndValidationView: View {
     }
 
     private var diagnosticsText: String {
-        [
+        var lines = [
             "Pult Diagnostics",
             "TV: \(model.selectedDevice?.name ?? "None")",
             "Host: \(model.selectedDevice?.host ?? "None")",
@@ -269,7 +288,12 @@ struct DiagnosticsAndValidationView: View {
             "Last Successful Validation: \(latestSuccessfulValidation.map(validationSummary) ?? "None")",
             "Last Validation Report: \(latestValidationReport?.summary ?? "Not run for this TV")",
             "Checklist: \(completedIDs.count)/\(ValidationChecklistSection.totalItemCount)"
-        ].joined(separator: "\n")
+        ]
+        lines.append("")
+        lines.append("Protocol Observations (not validation evidence):")
+        lines.append("- Session TV: \(model.session.device?.name ?? "No active session")")
+        lines.append(contentsOf: model.session.protocolState.diagnosticLines.map { "- \($0)" })
+        return lines.joined(separator: "\n")
     }
 
     private var validationReportText: String {
@@ -334,6 +358,17 @@ struct DiagnosticsAndValidationView: View {
     private func textFieldSummary(_ status: RemoteTextFieldStatus) -> String {
         let label = status.label.isEmpty ? "Focused" : status.label
         return "\(label), counter \(status.counter), selection \(status.selectionStart)-\(status.selectionEnd)"
+    }
+
+    private func lineTitle(_ line: String) -> String {
+        guard let separator = line.firstIndex(of: ":") else { return line }
+        return String(line[..<separator])
+    }
+
+    private func lineValue(_ line: String) -> String {
+        guard let separator = line.firstIndex(of: ":") else { return "" }
+        let valueStart = line.index(after: separator)
+        return String(line[valueStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func connect() {

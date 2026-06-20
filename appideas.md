@@ -34,7 +34,7 @@ The product is a **Trust Triad: Instant + Trustworthy + There.** Beauty rides on
 
 **Live volume bar — 📋**
 The TV pushes its real volume (level/max/mute); show it as a live bar on the Live Activity + Dynamic Island.
-- **why:** the only "remote that shows the TV" state the v2 protocol actually exposes — a premium, differentiating touch. (Already parsed into `RemoteSession.volumeStatus`; just needs plumbing into the Activity. Device-dependent — degrade to hidden when absent.) *Cheap & differentiating, but rides on top of the triad — promote it the moment the foundation is proven.*
+- **why:** the clearest product-grade "remote that shows the TV" state the v2 protocol exposes — a premium, differentiating touch. (Already parsed into `RemoteSession.volumeStatus`; just needs plumbing into the Activity. Device-dependent — degrade to hidden when absent.) Other protocol observations, such as feature codes, IME app observations, and `remote_start.started`, stay in Diagnostics unless physical evidence proves a product behavior. *Cheap & differentiating, but rides on top of the triad — promote it the moment the foundation is proven.*
 
 **Layout & motion polish — 📋**
 Perfect the button geometry, hierarchy, press animation, and Dynamic Island choreography (within the buttons/toggles-only Live Activity).
@@ -58,7 +58,7 @@ Perfect the button geometry, hierarchy, press animation, and Dynamic Island chor
 - **StandBy bedside mode** — ⛔ deliberately cut (your call). A nightstand-friendly remote was on the table; deprioritized.
 - **Adaptive auto-layout from recent commands** — ⛔ scoped out; predictable muscle memory beats a layout that shifts under you.
 - **Hold-to-repeat / swipe touchpad on the lock screen** — 🚧 Live Activities support only discrete buttons/toggles — no gestures, drag, or press-and-hold. Richness has to come from elsewhere.
-- **Now-playing card (title/art/scrubber), current-app name/icon, power/standby light** — 🚧 none exist in the Android TV Remote **v2** protocol; they'd need Cast/MediaSession, a transport Pult doesn't speak. Don't design a now-playing card on this connection.
+- **Now-playing card (title/art/scrubber), current-app name/icon, power/standby light** — 🚧 not product-truth surfaces on the Android TV Remote **v2** connection. Pult can show session-scoped protocol observations in Diagnostics, including IME app observations and `remote_start.started`, but those are not a stable foreground-app feed, now-playing metadata, or authoritative power state. Don't design a now-playing card on this connection.
 
 ---
 
