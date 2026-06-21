@@ -368,6 +368,73 @@ expect(
     successfulValidationReport.physicalDeviceValidation?.passedAreas.map(\.id).contains(ValidationRunStepID.dpad) == true,
     "physical validation passed areas missing d-pad"
 )
+let protocolEvidenceReport = ProtocolEvidenceReport(
+    device: reachableDevice,
+    connectionState: .connected,
+    protocolState: RemoteSessionProtocolState(
+        negotiation: RemoteProtocolNegotiation(
+            inboundConfigureCode: RemoteProtocolObservation(
+                value: RemoteProtocolCode(rawValue: 64),
+                observedAt: Date(timeIntervalSince1970: 113),
+                deviceID: reachableDevice.id,
+                connectionAttempt: 1,
+                source: "remote_configure.code1"
+            ),
+            outboundConfigureCode: RemoteProtocolObservation(
+                value: RemoteProtocolCode(rawValue: 622),
+                observedAt: Date(timeIntervalSince1970: 114),
+                deviceID: reachableDevice.id,
+                connectionAttempt: 1,
+                source: "client.remote_configure.code1"
+            )
+        ),
+        remoteStart: RemoteProtocolObservation(
+            value: true,
+            observedAt: Date(timeIntervalSince1970: 115),
+            deviceID: reachableDevice.id,
+            connectionAttempt: 1,
+            source: "remote_start.started"
+        )
+    ),
+    capturedAt: Date(timeIntervalSince1970: 116)
+)
+expect(!protocolEvidenceReport.isValidationEvidence, "protocol evidence must not count as validation")
+expect(
+    protocolEvidenceReport.questions.map(\.id).contains("dynamic-negotiation-safety"),
+    "protocol evidence should include dynamic negotiation question"
+)
+expect(
+    protocolEvidenceReport.observation(named: "remote-start")?.value == "observed started=true",
+    "protocol evidence should capture remote_start"
+)
+expect(
+    protocolEvidenceReport.observation(named: "configure-mask-from-tv")?.deviceID == reachableDevice.id,
+    "protocol evidence should preserve raw mask device provenance"
+)
+expect(
+    protocolEvidenceReport.observation(named: "configure-mask-from-tv")?.connectionAttempt == 1,
+    "protocol evidence should preserve raw mask connection attempt"
+)
+expect(
+    protocolEvidenceReport.questionAnswers.first { $0.id == "remote-start-arrival" }?.status == .captured,
+    "protocol evidence should answer remote_start arrival status"
+)
+expect(
+    protocolEvidenceReport.questionAnswers.first { $0.id == "dynamic-negotiation-safety" }?.answer.contains("not proven safe") == true,
+    "protocol evidence should make dynamic negotiation safety unresolved"
+)
+expect(
+    protocolEvidenceReport.copyLines.contains("Protocol Evidence Capture (not validation evidence)")
+        && protocolEvidenceReport.copyLines.contains("Stage 2 Question Status:"),
+    "protocol evidence copy block missing"
+)
+let reportWithEvidence = successfulValidationRun.makeReport(
+    for: reachableDevice,
+    updatedAt: Date(timeIntervalSince1970: 117),
+    protocolEvidence: protocolEvidenceReport
+)
+expect(reportWithEvidence.protocolEvidence == protocolEvidenceReport, "validation report should preserve protocol evidence")
+expect(reportWithEvidence.isSuccessfulPhysicalValidation, "protocol evidence should not block physical validation")
 var validatedDevice = reachableDevice
 expect(!validatedDevice.isValidatedOnPhysicalDevice, "device should not be physically validated by default")
 expect(

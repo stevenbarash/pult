@@ -289,6 +289,15 @@ public final class RemoteSession {
         return textFieldStatus != nil
     }
 
+    public func makeProtocolEvidenceReport(capturedAt: Date = .now) -> ProtocolEvidenceReport {
+        ProtocolEvidenceReport(
+            device: device,
+            connectionState: connectionState,
+            protocolState: protocolState,
+            capturedAt: capturedAt
+        )
+    }
+
     public func startVoiceSession(timeout: Duration = .seconds(2)) async -> VoiceSessionStartResult {
         guard connectionState == .connected else {
             let message = "Connect to the TV before voice search."

@@ -18,12 +18,14 @@ traffic timestamps, Bonjour visibility, command-port reachability, keyboard
 readiness, and manual command checks. Manual rows send a command, then wait for
 you to mark pass or fail after watching the TV.
 
-Diagnostics may also copy session-scoped protocol observations such as
-configure/set-active feature codes, device info, IME app observations, IME batch
-summaries, and `remote_start.started` when the TV publishes them. These are
-useful debugging context, but they do not pass any physical-validation area by
-themselves and must not be cited as proof of foreground-app, power-state, or
-now-playing behavior.
+Diagnostics may also copy and persist a Stage 2 protocol evidence block with
+session-scoped observations such as configure/set-active feature codes, device
+info, IME app observations, IME batch summaries, and `remote_start.started` when
+the TV publishes them. Saved evidence includes per-observation provenance and
+per-question status rows for the Stage 2 parity questions. These are useful
+debugging context, but they do not pass any physical-validation area by
+themselves and must not be cited as proof of foreground-app, power-state,
+now-playing, or dynamic-negotiation behavior.
 
 ## Evidence To Record
 
@@ -36,8 +38,9 @@ now-playing behavior.
   reconnect.
 
 The copied Diagnostics validation report can supply the device name, host,
-timestamps, summary, and step results. The checklist below is the manual record
-for observations that require watching the TV or using system surfaces.
+timestamps, summary, step results, and the Stage 2 protocol evidence block when
+the active session matches the selected TV. The checklist below is the manual
+record for observations that require watching the TV or using system surfaces.
 
 ## Recorded Physical Validation
 

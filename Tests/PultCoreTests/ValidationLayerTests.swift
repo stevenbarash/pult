@@ -66,6 +66,197 @@ func validationReportCapturesDeviceAndFailureSummary() {
 }
 
 @Test
+func protocolEvidenceReportCapturesStage2QuestionsWithoutValidationClaim() throws {
+    let device = DeviceRecord(
+        id: UUID(uuidString: "00000000-0000-0000-0000-000000000045")!,
+        name: "Living Room",
+        host: "10.0.0.45",
+        isPaired: true
+    )
+    let protocolState = RemoteSessionProtocolState(
+        negotiation: RemoteProtocolNegotiation(
+            inboundConfigureCode: RemoteProtocolObservation(
+                value: RemoteProtocolCode(rawValue: 64),
+                observedAt: Date(timeIntervalSince1970: 101),
+                deviceID: device.id,
+                connectionAttempt: 1,
+                source: "remote_configure.code1"
+            ),
+            outboundConfigureCode: RemoteProtocolObservation(
+                value: RemoteProtocolCode(rawValue: 622),
+                observedAt: Date(timeIntervalSince1970: 102),
+                deviceID: device.id,
+                connectionAttempt: 1,
+                source: "client.remote_configure.code1"
+            ),
+            inboundSetActiveCode: RemoteProtocolObservation(
+                value: RemoteProtocolCode(rawValue: 64),
+                observedAt: Date(timeIntervalSince1970: 103),
+                deviceID: device.id,
+                connectionAttempt: 1,
+                source: "remote_set_active.active"
+            ),
+            outboundSetActiveCode: RemoteProtocolObservation(
+                value: RemoteProtocolCode(rawValue: 622),
+                observedAt: Date(timeIntervalSince1970: 104),
+                deviceID: device.id,
+                connectionAttempt: 1,
+                source: "client.remote_set_active.active"
+            )
+        ),
+        deviceInfo: RemoteProtocolObservation(
+            value: RemoteDeviceInfo(
+                model: "Chromecast",
+                vendor: "Google",
+                packageName: "com.google.android.tv.remote.service",
+                appVersion: "5.2"
+            ),
+            observedAt: Date(timeIntervalSince1970: 105),
+            deviceID: device.id,
+            connectionAttempt: 1,
+            source: "remote_configure.device_info"
+        ),
+        remoteStart: RemoteProtocolObservation(
+            value: true,
+            observedAt: Date(timeIntervalSince1970: 106),
+            deviceID: device.id,
+            connectionAttempt: 1,
+            source: "remote_start.started"
+        ),
+        imeApp: RemoteProtocolObservation(
+            value: RemoteAppInfo(label: "Netflix", appPackage: "com.netflix.ninja"),
+            observedAt: Date(timeIntervalSince1970: 107),
+            deviceID: device.id,
+            connectionAttempt: 1,
+            source: "remote_ime_key_inject.app_info"
+        ),
+        lastImeBatchEdit: RemoteProtocolObservation(
+            value: RemoteImeBatchEditObservation(
+                imeCounter: 3,
+                fieldCounter: 9,
+                edits: [RemoteEditInfoObservation(editType: 1)]
+            ),
+            observedAt: Date(timeIntervalSince1970: 108),
+            deviceID: device.id,
+            connectionAttempt: 1,
+            source: "remote_ime_batch_edit"
+        )
+    )
+
+    let evidence = ProtocolEvidenceReport(
+        device: device,
+        connectionState: .connected,
+        protocolState: protocolState,
+        capturedAt: Date(timeIntervalSince1970: 200)
+    )
+
+    #expect(!evidence.isValidationEvidence)
+    #expect(evidence.questions.map(\.id) == [
+        "remote-start-arrival",
+        "remote-start-false",
+        "ime-app-scope",
+        "feature-mask-values",
+        "dynamic-negotiation-safety"
+    ])
+    #expect(evidence.observation(named: "remote-start")?.value == "observed started=true")
+    #expect(evidence.observation(named: "ime-app")?.value == "label Netflix, package com.netflix.ninja")
+    #expect(evidence.observation(named: "feature-mask-values")?.value.contains("configure from TV 64") == true)
+    #expect(evidence.observation(named: "configure-mask-from-tv")?.observedAt == Date(timeIntervalSince1970: 101))
+    #expect(evidence.observation(named: "configure-mask-from-tv")?.deviceID == device.id)
+    #expect(evidence.observation(named: "configure-mask-from-tv")?.connectionAttempt == 1)
+    #expect(evidence.observation(named: "dynamic-negotiation")?.value.contains("client response remains 622") == true)
+    #expect(evidence.questionAnswers.map(\.id) == [
+        "remote-start-arrival",
+        "remote-start-false",
+        "ime-app-scope",
+        "feature-mask-values",
+        "dynamic-negotiation-safety"
+    ])
+    #expect(evidence.questionAnswers.first { $0.id == "remote-start-arrival" }?.status == .captured)
+    #expect(evidence.questionAnswers.first { $0.id == "remote-start-false" }?.status == .manualEvidenceRequired)
+    #expect(evidence.questionAnswers.first { $0.id == "ime-app-scope" }?.answer.contains("scope remains unproven") == true)
+    #expect(evidence.questionAnswers.first { $0.id == "feature-mask-values" }?.status == .captured)
+    #expect(evidence.questionAnswers.first { $0.id == "dynamic-negotiation-safety" }?.answer.contains("not proven safe") == true)
+    #expect(evidence.copyLines.contains("Protocol Evidence Capture (not validation evidence)"))
+    #expect(evidence.copyLines.contains("Stage 2 Question Status:"))
+    #expect(evidence.copyLines.contains { $0.contains("remote_start false/meaning: Manual Evidence Required") })
+}
+
+@Test
+func validationReportPersistsProtocolEvidenceWithoutCountingItAsValidation() throws {
+    var run = ValidationRunState(startedAt: Date(timeIntervalSince1970: 100))
+    run.update(ValidationRunStepID.selectedTV, status: .passed, note: "Selected.", at: Date(timeIntervalSince1970: 101))
+    let device = DeviceRecord(
+        id: UUID(uuidString: "00000000-0000-0000-0000-000000000046")!,
+        name: "Office TV",
+        host: "10.0.0.46",
+        isPaired: true
+    )
+    let evidence = ProtocolEvidenceReport(
+        device: device,
+        connectionState: .connected,
+        protocolState: RemoteSessionProtocolState(
+            remoteStart: RemoteProtocolObservation(
+                value: false,
+                observedAt: Date(timeIntervalSince1970: 102),
+                deviceID: device.id,
+                connectionAttempt: 1,
+                source: "remote_start.started"
+            )
+        ),
+        capturedAt: Date(timeIntervalSince1970: 200)
+    )
+
+    let report = run.makeReport(
+        for: device,
+        updatedAt: Date(timeIntervalSince1970: 300),
+        protocolEvidence: evidence
+    )
+
+    #expect(report.protocolEvidence == evidence)
+    #expect(!report.isSuccessfulPhysicalValidation)
+    #expect(report.physicalDeviceValidation == nil)
+
+    let data = try JSONEncoder().encode(report)
+    let decoded = try JSONDecoder().decode(ValidationReport.self, from: data)
+    #expect(decoded.protocolEvidence == evidence)
+    #expect(decoded.protocolEvidence?.observation(named: "remote-start")?.value == "observed started=false")
+    #expect(decoded.protocolEvidence?.questionAnswers.first { $0.id == "remote-start-false" }?.answer.contains("started=false was captured") == true)
+    #expect(decoded.protocolEvidence?.questionAnswers.first { $0.id == "remote-start-false" }?.status == .manualEvidenceRequired)
+}
+
+@Test
+func legacyValidationReportJSONWithoutProtocolEvidenceDecodesNil() throws {
+    let data = """
+    [
+      {
+        "id": "00000000-0000-0000-0000-000000000047",
+        "deviceID": "00000000-0000-0000-0000-000000000048",
+        "deviceName": "Legacy TV",
+        "host": "10.0.0.48",
+        "startedAt": 100,
+        "updatedAt": 200,
+        "items": [
+          {
+            "id": "selected-tv",
+            "title": "Selected TV",
+            "detail": "A saved TV is selected.",
+            "status": "passed",
+            "note": "Selected.",
+            "updatedAt": 101
+          }
+        ]
+      }
+    ]
+    """.data(using: .utf8)!
+
+    let decoded = try JSONDecoder().decode([ValidationReport].self, from: data)
+
+    #expect(decoded.count == 1)
+    #expect(decoded.first?.protocolEvidence == nil)
+}
+
+@Test
 func successfulPhysicalValidationRequiresResolvedRequiredAreas() throws {
     var run = ValidationRunState(startedAt: Date(timeIntervalSince1970: 100))
     for item in run.items {

@@ -76,6 +76,15 @@ func sessionStoresProtocolConfigureSetActiveAndStartObservations() async {
     #expect(session.protocolState.negotiation.outboundSetActiveCode?.source == "client.remote_set_active.active")
     #expect(session.protocolState.remoteStart?.value == true)
     #expect(session.protocolState.remoteStart?.source == "remote_start.started")
+
+    let evidence = session.makeProtocolEvidenceReport(capturedAt: Date(timeIntervalSince1970: 300))
+    #expect(evidence.deviceID == device.id)
+    #expect(evidence.deviceName == device.name)
+    #expect(evidence.host == device.host)
+    #expect(evidence.observation(named: "remote-start")?.deviceID == device.id)
+    #expect(evidence.observation(named: "remote-start")?.connectionAttempt == 1)
+    #expect(evidence.observation(named: "configure-mask-response")?.value.contains("622") == true)
+    #expect(evidence.questionAnswers.first { $0.id == "remote-start-arrival" }?.status == .captured)
 }
 
 @MainActor

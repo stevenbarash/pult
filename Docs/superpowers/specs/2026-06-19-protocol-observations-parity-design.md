@@ -65,6 +65,12 @@ changing product semantics:
 - Does preserving `622` remain required, or can a dynamic negotiated mask safely
   replace it?
 
+The app should make these captures repeatable by saving a local protocol
+evidence block with validation reports. The block is diagnostic evidence only:
+it can carry raw masks, `remote_start`, configure device info, IME app info, and
+IME batch counters, but it must not pass validation areas or change product
+claims by itself.
+
 ### Stage 3: Product Promotion
 
 Promote only observations that prove stable and useful through a separate
@@ -248,10 +254,12 @@ The language must remain observational:
   that wording.
 
 Copied diagnostics may include protocol observations only under a separate
-`Protocol Observations (not validation evidence)` block. `validationReportText`,
-`ValidationRunItem`, `ValidationReport.passedAreas`, persisted
-`PhysicalDeviceValidationRecord`, checklist completion, and PostHog validation
-events must not include protocol observation values.
+`Protocol Observations (not validation evidence)` block. Stage 2 validation
+reports may append a local protocol evidence block when the active session
+matches the selected TV; that block must preserve observation provenance and
+explicit question statuses. `ValidationRunItem`, `ValidationReport.passedAreas`,
+persisted `PhysicalDeviceValidationRecord`, checklist completion, and PostHog
+validation events must not include protocol observation values.
 
 Treat IME app package/label and configure device-info package/model/vendor/version
 as private diagnostic fields. They may be shown in Diagnostics and copied only

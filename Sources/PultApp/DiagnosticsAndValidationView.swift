@@ -15,6 +15,7 @@ struct DiagnosticsAndValidationView: View {
     @State private var completedIDs: Set<String> = []
     @State private var statusMessage: String?
     @State private var validationRun: ValidationRunState?
+    @State private var validationRunReportID: UUID?
     @State private var latestValidationReport: ValidationReport?
     @State private var latestSuccessfulValidation: PhysicalDeviceValidationRecord?
     @State private var validationClaimState: DeviceValidationClaimState = .unvalidated
@@ -79,6 +80,27 @@ struct DiagnosticsAndValidationView: View {
                     Text("Protocol Observations")
                 } footer: {
                     Text("Session-scoped protocol observations and client negotiation responses. These are diagnostics, not physical validation evidence.")
+                }
+
+                Section {
+                    ForEach(currentProtocolEvidenceReport.observations) { observation in
+                        DiagnosticValueRow(
+                            observation.title,
+                            value: observation.value,
+                            systemImage: "doc.text.magnifyingglass"
+                        )
+                    }
+                    ForEach(currentProtocolEvidenceReport.questionAnswers) { answer in
+                        DiagnosticValueRow(
+                            answer.title,
+                            value: "\(answer.status.label): \(answer.answer)",
+                            systemImage: "questionmark.circle"
+                        )
+                    }
+                } header: {
+                    Text("Stage 2 Evidence")
+                } footer: {
+                    Text("Captured protocol evidence tracks parity question status but does not validate foreground app, power state, now-playing, or dynamic feature negotiation by itself.")
                 }
 
                 Section {
@@ -293,7 +315,22 @@ struct DiagnosticsAndValidationView: View {
         lines.append("Protocol Observations (not validation evidence):")
         lines.append("- Session TV: \(activeSessionDeviceName)")
         lines.append(contentsOf: model.session.protocolState.diagnosticLines.map { "- \($0)" })
+        lines.append("")
+        lines.append(contentsOf: currentProtocolEvidenceReport.copyLines)
         return lines.joined(separator: "\n")
+    }
+
+    private var currentProtocolEvidenceReport: ProtocolEvidenceReport {
+        model.session.makeProtocolEvidenceReport()
+    }
+
+    private var selectedDeviceProtocolEvidenceReport: ProtocolEvidenceReport? {
+        guard let selectedDeviceID = model.selectedDevice?.id,
+              let sessionDeviceID = model.session.device?.id,
+              selectedDeviceID == sessionDeviceID else {
+            return nil
+        }
+        return currentProtocolEvidenceReport
     }
 
     private var activeSessionDeviceName: String {
@@ -319,7 +356,24 @@ struct DiagnosticsAndValidationView: View {
         let rows = validationResults.map { item in
             "- \(item.title): \(item.status.label)\(item.note.isEmpty ? "" : " - \(item.note)")"
         }
-        return (header + rows).joined(separator: "\n")
+        return (header + rows + [""] + validationReportEvidenceLines).joined(separator: "\n")
+    }
+
+    private var validationReportEvidenceLines: [String] {
+        if let latestValidationReport, validationRunReportID == latestValidationReport.id {
+            return latestValidationReport.protocolEvidence?.copyLines ?? noAttachedProtocolEvidenceLines
+        }
+        if validationRun != nil {
+            return selectedDeviceProtocolEvidenceReport?.copyLines ?? noAttachedProtocolEvidenceLines
+        }
+        return noAttachedProtocolEvidenceLines
+    }
+
+    private var noAttachedProtocolEvidenceLines: [String] {
+        [
+            "Protocol Evidence Capture (not validation evidence)",
+            "No protocol evidence is attached to this validation report because the active session does not match the selected TV."
+        ]
     }
 
     private func selectedDevicePort(_ keyPath: KeyPath<DeviceRecord, UInt16>) -> String {
@@ -425,6 +479,7 @@ struct DiagnosticsAndValidationView: View {
         latestSuccessfulValidation = validationStore.latestSuccessfulValidation(for: model.selectedDevice?.id)
         validationClaimState = validationStore.validationClaimState(for: model.selectedDevice?.id)
         validationRun = latestValidationReport.map(ValidationRunState.init(report:))
+        validationRunReportID = latestValidationReport?.id
     }
 
     private func runValidation() {
@@ -434,6 +489,7 @@ struct DiagnosticsAndValidationView: View {
             ? "Running validation..."
             : "Re-running validation for \(model.selectedDevice?.name ?? "this TV")..."
         validationRun = ValidationRunState(startedAt: .now)
+        validationRunReportID = nil
         Task {
             await performValidationRun()
         }
@@ -508,12 +564,14 @@ struct DiagnosticsAndValidationView: View {
         guard var run = validationRun else { return }
         run.update(id, status: status, note: note)
         validationRun = run
+        validationRunReportID = nil
     }
 
     private func skipPendingValidationItems(reason: String) {
         guard var run = validationRun else { return }
         run.skipPending(reason: reason)
         validationRun = run
+        validationRunReportID = nil
     }
 
     private func finishValidation() {
@@ -540,10 +598,14 @@ struct DiagnosticsAndValidationView: View {
 
     private func saveValidationReport() {
         guard let validationRun else { return }
-        let report = validationRun.makeReport(for: model.selectedDevice)
+        let report = validationRun.makeReport(
+            for: model.selectedDevice,
+            protocolEvidence: selectedDeviceProtocolEvidenceReport
+        )
         validationStore.save(report)
         model.recordSuccessfulValidation(from: report)
         latestValidationReport = report
+        validationRunReportID = report.id
         latestSuccessfulValidation = validationStore.latestSuccessfulValidation(for: model.selectedDevice?.id)
         validationClaimState = validationStore.validationClaimState(for: model.selectedDevice?.id)
     }
