@@ -18,6 +18,13 @@ traffic timestamps, Bonjour visibility, command-port reachability, keyboard
 readiness, and manual command checks. Manual rows send a command, then wait for
 you to mark pass or fail after watching the TV.
 
+Diagnostics may also copy session-scoped protocol observations such as
+configure/set-active feature codes, device info, IME app observations, IME batch
+summaries, and `remote_start.started` when the TV publishes them. These are
+useful debugging context, but they do not pass any physical-validation area by
+themselves and must not be cited as proof of foreground-app, power-state, or
+now-playing behavior.
+
 ## Evidence To Record
 
 - Date: `YYYY-MM-DD`, matching the day the real-device validation was run.

@@ -14,7 +14,7 @@ Two findings from investigation collapsed the original "fix latency" (A) and "sh
 
 1. **Latency root cause (code trace).** `RemoteControlModel.executeRemoteAction` runs `ensureFreshConnection(staleAfter: 30)` and re-dials on nearly every tap. There is no warm process, no client heartbeat, and any gap over 30 seconds since the last received frame forces a fresh TCP + mutual-TLS + protocol-`configure` handshake before the key is sent. With no keep-alive, the process and socket rarely survive between intermittent taps — which matches the reported "every tap is laggy." Evidence: `RemoteControlModel.swift` (`staleAfter: 30`), `RemoteSession.needsConnectionRefresh`, `RemoteTransport.connect` (8s connect ceiling), `RemoteSession.waitForConfiguration` (5s ceiling). No `beginBackgroundTask`/`performExpiringActivity`/heartbeat exists.
 
-2. **Live-state ceiling (protocol spike).** The reverse-engineered Android TV Remote **v2** protocol exposes, as inbound state: **volume** (absolute level + max + mute — already decoded into the observable `RemoteSession.volumeStatus`, with a ready 0–1 `normalizedLevel`), **connection liveness**, and **text-field focus** (the TV asking for input, with a field label). It does **not** carry now-playing media metadata, the current foreground app, or a power/standby flag — those live in Cast/MediaSession, a transport Pult does not speak. So "a remote that shows the TV" realistically means **live volume + status**.
+2. **Live-state ceiling (protocol spike).** The reverse-engineered Android TV Remote **v2** protocol exposes, as inbound state: **volume** (absolute level + max + mute — already decoded into the observable `RemoteSession.volumeStatus`, with a ready 0–1 `normalizedLevel`), **connection liveness**, **text-field focus** (the TV asking for input, with a field label), plus session-scoped protocol observations such as handshake feature codes, IME app observations, and `remote_start.started` when the TV publishes them. Those observations are diagnostics, not a stable now-playing feed, foreground-app API, or authoritative power/standby state. So "a remote that shows the TV" realistically means **live volume + status**, with richer observations kept in Diagnostics unless physical evidence proves a product behavior.
 
 **The convergence:** receiving volume pushes requires a persistently open session — the exact thing the latency fix needs. Build "keep one live session feeding the Lock Screen" once and you get instant taps *and* a live volume bar.
 
@@ -117,7 +117,7 @@ The measurement pass adds only a Diagnostics readout, which follows existing Dia
 - The warm-session mechanisms themselves (warm window, heartbeat, fast reconnect, optimistic feel) — their final design is selected by the Phase 0 numbers and written up as a follow-on. This spec commits only the measurement pass, the decision framework, and the agreed direction.
 - Layout and motion redesign of the Live Activity (sub-project 3).
 - Reach surfaces — Action Button, a static Lock-Screen widget, Apple Watch (sub-project 4).
-- Now-playing / current-app / power live state (not in the v2 protocol).
+- Now-playing / current-app / power product truth. v2 protocol observations can help Diagnostics, but this spec does not promote them into foreground-app, now-playing, or power-state UI.
 - Per-TV layout settings; new protocol behavior; new production dependencies.
 
 ## Follow-on

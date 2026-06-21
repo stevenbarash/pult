@@ -18,10 +18,18 @@ Telemetry events distinguish public and private metadata. Public metadata may
 appear in logs; private metadata is intentionally omitted from the rendered log
 message.
 
+Protocol observations shown in Diagnostics are local, session-scoped debugging
+data. They may include device-info strings and IME app package or label values
+reported by the TV. Keep those values out of PostHog and other product
+analytics events; diagnostics may summarize that an observation exists without
+sending the raw device-info, package, label, or typed-text content.
+
 Do not log:
 
 - TV hostnames or IP addresses
 - saved TV names
+- raw protocol device-info values
+- IME app package names or labels
 - pairing codes
 - typed text
 - certificate, key, or pairing-secret material
@@ -53,5 +61,6 @@ same runtime toggle as the local diagnostics log, so they are off for normal
 TestFlight use unless measurement is explicitly turned on.
 
 Do not log private telemetry fields into PostHog events. TV hostnames, IP
-addresses, saved TV names, pairing codes, typed text, certificates, keys, and
+addresses, saved TV names, raw protocol device-info values, IME app package
+names or labels, pairing codes, typed text, certificates, keys, and
 pairing-secret material must stay out of event properties.

@@ -47,6 +47,8 @@ public final class RemoteSession {
     public private(set) var textFieldStatus: RemoteTextFieldStatus?
     /// Latest volume state published by the TV, when the device reports it.
     public private(set) var volumeStatus: RemoteVolumeStatus?
+    /// Latest provenance-scoped protocol observations decoded from the TV.
+    public private(set) var protocolState = RemoteSessionProtocolState()
     /// Last time a framed protocol message arrived from the TV.
     public private(set) var lastReceivedAt: Date?
     /// Last time a framed protocol message was sent to the TV.
@@ -65,6 +67,7 @@ public final class RemoteSession {
     private let codec: RemoteMessageCodec
     private let framer: VarintFramer
     private let configureTimeout: Duration
+    private let protocolNegotiator = RemoteProtocolNegotiator()
     private var readTask: Task<Void, Never>?
     private var connectTask: Task<Void, Never>?
     private var connectAttempt = 0
@@ -104,6 +107,7 @@ public final class RemoteSession {
         lastError = nil
         textFieldStatus = nil
         volumeStatus = nil
+        resetProtocolState()
         lastReceivedAt = nil
         lastSentAt = nil
         lastTCPTLSMilliseconds = nil
@@ -171,6 +175,7 @@ public final class RemoteSession {
         connectionState = .disconnected
         textFieldStatus = nil
         volumeStatus = nil
+        resetProtocolState()
         nextImeCounter = 0
         pendingVoiceSessionID = nil
         Task {
@@ -373,18 +378,56 @@ public final class RemoteSession {
     private func handle(_ frame: Data, attempt: Int) async throws {
         lastReceivedAt = .now
         switch try codec.decode(frame) {
-        case .configure:
-            try await send(codec.encodeConfigureResponse())
-            if attempt == connectAttempt {
-                connectionState = .connected
+        case let .configure(request):
+            guard attempt == connectAttempt else { return }
+            if let code = request.code {
+                protocolState.negotiation.inboundConfigureCode = observe(
+                    code,
+                    source: "remote_configure.code1",
+                    attempt: attempt
+                )
             }
-        case .setActive:
+            if let deviceInfo = request.deviceInfo {
+                protocolState.deviceInfo = observe(
+                    deviceInfo,
+                    source: "remote_configure.device_info",
+                    attempt: attempt
+                )
+            }
+            try await send(codec.encodeConfigureResponse())
+            guard attempt == connectAttempt else { return }
+            protocolState.negotiation.outboundConfigureCode = observe(
+                protocolNegotiator.clientResponseCode,
+                source: "client.remote_configure.code1",
+                attempt: attempt
+            )
+            connectionState = .connected
+        case let .setActive(request):
+            guard attempt == connectAttempt else { return }
+            protocolState.negotiation.inboundSetActiveCode = observe(
+                request.active,
+                source: request.active == nil ? "remote_set_active" : "remote_set_active.active",
+                attempt: attempt
+            )
             try await send(codec.encodeSetActiveResponse())
+            guard attempt == connectAttempt else { return }
+            protocolState.negotiation.outboundSetActiveCode = observe(
+                protocolNegotiator.clientResponseCode,
+                source: "client.remote_set_active.active",
+                attempt: attempt
+            )
         case let .pingRequest(value):
             try await send(codec.encodePingResponse(value))
         case .error:
             lastError = "The TV reported a remote error"
-        case .started, .other:
+        case let .started(started):
+            guard attempt == connectAttempt else { return }
+            protocolState.remoteStart = observe(
+                started,
+                source: "remote_start.started",
+                attempt: attempt
+            )
+        case .other:
             break
         case let .volume(level, maximum, muted):
             volumeStatus = RemoteVolumeStatus(level: level, maximum: maximum, muted: muted)
@@ -393,6 +436,35 @@ public final class RemoteSession {
         case let .textFieldStatus(status):
             nextImeCounter = max(status.imeCounter, 1)
             textFieldStatus = status
+        case let .imeKeyInject(observation):
+            guard attempt == connectAttempt else { return }
+            if let appInfo = observation.appInfo {
+                protocolState.imeApp = observe(
+                    appInfo,
+                    source: "remote_ime_key_inject.app_info",
+                    attempt: attempt
+                )
+            }
+            protocolState.lastImeKeyInject = observe(
+                observation,
+                source: "remote_ime_key_inject",
+                attempt: attempt
+            )
+            if let status = observation.textFieldStatus {
+                nextImeCounter = max(status.imeCounter, 1)
+                textFieldStatus = status
+            }
+        case let .imeBatchEdit(observation):
+            guard attempt == connectAttempt else { return }
+            protocolState.lastImeBatchEdit = observe(
+                observation,
+                source: "remote_ime_batch_edit",
+                attempt: attempt
+            )
+            if let status = observation.derivedTextFieldStatus {
+                nextImeCounter = max(status.imeCounter, 1)
+                textFieldStatus = status
+            }
         case let .voiceBegin(sessionID):
             pendingVoiceSessionID = sessionID
         }
@@ -432,10 +504,28 @@ public final class RemoteSession {
         lastSentAt = .now
     }
 
+    private func resetProtocolState() {
+        protocolState = RemoteSessionProtocolState()
+    }
+
+    private func observe<Value: Equatable & Sendable>(
+        _ value: Value,
+        source: String,
+        attempt: Int
+    ) -> RemoteProtocolObservation<Value> {
+        RemoteProtocolObservation(
+            value: value,
+            deviceID: device?.id,
+            connectionAttempt: attempt,
+            source: source
+        )
+    }
+
     private func fail(with message: String, attempt: Int? = nil) {
         if let attempt, attempt != connectAttempt { return }
         lastError = message
         connectionState = .failed(message)
+        resetProtocolState()
     }
 
     private func recordConnectTelemetry(

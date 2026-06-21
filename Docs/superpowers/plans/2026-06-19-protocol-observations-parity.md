@@ -99,13 +99,13 @@ func protocolFeatureCodeDecoding() {
     #expect(code.features.contains(.key))
     #expect(code.features.contains(.ime))
     #expect(code.features.contains(.voice))
-    #expect(code.features.contains(.unknown1))
+    #expect(!code.features.contains(.unknown1))
     #expect(code.features.contains(.powerCommandCapability))
     #expect(code.features.contains(.volume))
     #expect(code.features.contains(.appLink))
     #expect(!code.features.contains(.ping))
     #expect(code.unknownBits == 0)
-    #expect(code.labels == ["key", "ime", "voice", "unknown1", "powerCommandCapability", "volume", "appLink"])
+    #expect(code.labels == ["key", "ime", "voice", "powerCommandCapability", "volume", "appLink"])
 
     let unknown = RemoteProtocolCode(rawValue: 1024 + 64)
     #expect(unknown.features == [.volume])
@@ -487,7 +487,7 @@ public struct RemoteProtocolObservation<Value: Equatable & Sendable>: Equatable,
 public struct RemoteProtocolNegotiation: Equatable, Sendable {
     public var inboundConfigureCode: RemoteProtocolObservation<RemoteProtocolCode>?
     public var outboundConfigureCode: RemoteProtocolObservation<RemoteProtocolCode>?
-    public var inboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode>?
+    public var inboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode?>?
     public var outboundSetActiveCode: RemoteProtocolObservation<RemoteProtocolCode>?
 }
 
@@ -731,7 +731,7 @@ func sessionStoresProtocolObservations() async {
 
     #expect(session.protocolState.negotiation.inboundConfigureCode?.value.rawValue == 64)
     #expect(session.protocolState.negotiation.outboundConfigureCode?.value.rawValue == 622)
-    #expect(session.protocolState.negotiation.inboundSetActiveCode?.value.rawValue == 622)
+    #expect(session.protocolState.negotiation.inboundSetActiveCode?.value?.rawValue == 622)
     #expect(session.protocolState.negotiation.outboundSetActiveCode?.value.rawValue == 622)
     #expect(session.protocolState.remoteStart?.value == true)
     #expect(sent.count >= 2)
@@ -922,9 +922,7 @@ case let .configure(request):
     connectionState = .connected
 
 case let .setActive(request):
-    if let code = request.active {
-        protocolState.negotiation.inboundSetActiveCode = observe(code, source: "remote_set_active.active", attempt: attempt)
-    }
+    protocolState.negotiation.inboundSetActiveCode = observe(request.active, source: request.active == nil ? "remote_set_active" : "remote_set_active.active", attempt: attempt)
     try await send(codec.encodeSetActiveResponse())
     guard attempt == connectAttempt else { return }
     protocolState.negotiation.outboundSetActiveCode = observe(protocolNegotiator.clientResponseCode, source: "client.remote_set_active.active", attempt: attempt)
@@ -978,7 +976,7 @@ If local Swift Testing is unavailable, continue and use `make core-check` after 
 
 ```swift
 let featureCode = RemoteProtocolCode(rawValue: 622)
-expect(featureCode.labels == ["key", "ime", "voice", "unknown1", "powerCommandCapability", "volume", "appLink"], "feature code 622 decodes expected labels")
+expect(featureCode.labels == ["key", "ime", "voice", "powerCommandCapability", "volume", "appLink"], "feature code 622 decodes expected labels")
 expect(featureCode.unknownBits == 0, "feature code 622 has no unknown bits")
 
 switch try remoteCodec.decode(remoteConfigureFrame(code: 64)) {
@@ -1071,7 +1069,7 @@ extension RemoteSessionProtocolState {
         [
             "Configure from TV: \(negotiation.inboundConfigureCode?.value.diagnosticText ?? "Not observed this session")",
             "Configure response: \(negotiation.outboundConfigureCode?.value.diagnosticText ?? "Not sent this session")",
-            "Set-active from TV: \(negotiation.inboundSetActiveCode?.value.diagnosticText ?? "Not observed this session")",
+            "Set-active from TV: \(negotiation.inboundSetActiveCode.map { $0.value?.diagnosticText ?? "Observed without active field" } ?? "Not observed this session")",
             "Set-active response: \(negotiation.outboundSetActiveCode?.value.diagnosticText ?? "Not sent this session")",
             "Device info: \(deviceInfo?.value.diagnosticText ?? "Not observed this session")",
             "Remote start: \(remoteStart.map { $0.value ? "started=true" : "started=false" } ?? "Not observed this session")",
@@ -1119,7 +1117,7 @@ If a `String.nonEmpty` helper already exists, use the existing helper and do not
 Section {
     DiagnosticValueRow(
         "Session TV",
-        value: model.session.device?.name ?? "No active session",
+        value: activeSessionDeviceName,
         systemImage: "tv"
     )
     ForEach(model.session.protocolState.diagnosticLines, id: \.self) { line in
@@ -1177,7 +1175,7 @@ private var diagnosticsText: String {
 
     lines.append("")
     lines.append("Protocol Observations (not validation evidence):")
-    lines.append("- Session TV: \(model.session.device?.name ?? "No active session")")
+    lines.append("- Session TV: \(activeSessionDeviceName)")
     for line in model.session.protocolState.diagnosticLines {
         lines.append("- \(line)")
     }
