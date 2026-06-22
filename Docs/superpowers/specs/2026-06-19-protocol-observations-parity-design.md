@@ -71,6 +71,25 @@ it can carry raw masks, `remote_start`, configure device info, IME app info, and
 IME batch counters, but it must not pass validation areas or change product
 claims by itself.
 
+#### Remaining Stage 2 / Parity TODO
+
+- Run repeated fresh-connect evidence captures on `Android.local` and at least
+  one additional TV, saving the copied validation reports for comparison.
+- Record whether `remote_start` appears on every connect, only after particular
+  TV states, or only from specific Android TV Remote Service builds.
+- Capture any observed `remote_start(false)` event with simultaneous manual
+  notes for TV wake/sleep, foreground app, and visible playback state.
+- Switch apps while no text field is focused, then focus text fields in multiple
+  apps, to determine whether `remote_ime_key_inject.app_info` is IME-scoped or
+  a broader app signal.
+- Compare raw configure and set-active feature masks across sessions, TVs, and
+  service versions before changing the fixed `622` client response.
+- Keep dynamic negotiation disabled until repeated physical captures prove a
+  negotiated mask works at least as reliably as the current compatibility path.
+- After physical evidence is collected, compare Pult's captured protocol/state
+  behavior against `tronikos/androidtvremote2` and write a Stage 3 product spec
+  for any observation worth promoting beyond Diagnostics.
+
 ### Stage 3: Product Promotion
 
 Promote only observations that prove stable and useful through a separate
